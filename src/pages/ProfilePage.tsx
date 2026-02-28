@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { User, Bell, Wrench, LogOut, CheckCircle2, XCircle, Shield } from 'lucide-react';
+import { getCurrentUser, signOut, checkHandshake, getMaskedBackendUrl, getMyClients, type ClientSummary } from '@/lib/dal';
+import { User, Bell, Wrench, LogOut, CheckCircle2, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { useNavigate } from 'react-router-dom';
 
 export default function ProfilePage() {
   const [user, setUser] = useState<any>(null);
+  const [clients, setClients] = useState<ClientSummary[]>([]);
   const [notifications, setNotifications] = useState(() => {
     return localStorage.getItem('bd_notifications') !== 'false';
   });
@@ -19,22 +20,17 @@ export default function ProfilePage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUser(data.user));
+    getCurrentUser().then(setUser);
+    getMyClients().then(setClients);
   }, []);
 
   useEffect(() => {
     async function ping() {
       try {
-        const { data } = await (supabase as any)
-          .from('app_handshake')
-          .select('app_slug')
-          .eq('id', 1)
-          .single();
-        const url = import.meta.env.VITE_SUPABASE_URL || '';
-        const masked = url.replace(/https:\/\/([a-z]{4})[^.]*/, 'https://$1****');
+        const { appSlug } = await checkHandshake();
         setDiagnostics({
-          appSlug: data?.app_slug || 'unknown',
-          supabaseUrl: masked,
+          appSlug,
+          supabaseUrl: getMaskedBackendUrl(),
           lastPing: new Date().toLocaleString(),
         });
       } catch {
@@ -50,7 +46,7 @@ export default function ProfilePage() {
   }
 
   async function handleLogout() {
-    await supabase.auth.signOut();
+    await signOut();
     navigate('/login');
   }
 
@@ -72,9 +68,20 @@ export default function ProfilePage() {
       {/* My Clients */}
       <div className="rounded-xl border border-border bg-card p-5 shadow-card">
         <h3 className="font-display font-bold text-foreground mb-3">My Client(s)</h3>
-        <p className="text-sm text-muted-foreground">
-          Your assigned clients will appear here once connected to the NovaTrack backend.
-        </p>
+        {clients.length > 0 ? (
+          <ul className="space-y-2">
+            {clients.map(c => (
+              <li key={c.id} className="flex items-center gap-2 text-sm text-foreground">
+                <User className="h-4 w-4 text-muted-foreground" />
+                {c.first_name} {c.last_name}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Your assigned clients will appear here once connected to the backend.
+          </p>
+        )}
       </div>
 
       {/* Notifications */}
@@ -108,7 +115,7 @@ export default function ProfilePage() {
               value={diagnostics.appSlug || '…'}
               ok={diagnostics.appSlug === 'novatrack'}
             />
-            <DiagRow label="Supabase URL" value={diagnostics.supabaseUrl || '…'} />
+            <DiagRow label="Backend URL" value={diagnostics.supabaseUrl || '…'} />
             <DiagRow label="Last DB Ping" value={diagnostics.lastPing || '…'} ok={diagnostics.lastPing !== 'Failed'} />
           </div>
         )}

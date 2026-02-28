@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { updatePassword } from '@/lib/dal';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,7 +49,7 @@ export default function InviteAcceptPage() {
     }
     setLoading(true);
     setError('');
-    const { error } = await supabase.auth.updateUser({ password });
+    const { error } = await updatePassword(password);
     if (error) {
       setError(error.message);
     } else {

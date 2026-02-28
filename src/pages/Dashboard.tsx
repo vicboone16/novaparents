@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { BookOpen, PenLine, Lightbulb, ArrowRight, Heart, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { getCurrentUser } from '@/lib/dal';
 
 const quickActions = [
   { to: '/log', icon: PenLine, label: 'Log Behavior', color: 'bg-secondary/10 text-secondary' },
@@ -13,8 +13,8 @@ export default function Dashboard() {
   const [userName, setUserName] = useState('');
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      const email = data.user?.email || '';
+    getCurrentUser().then((user) => {
+      const email = user?.email || '';
       setUserName(email.split('@')[0] || 'there');
     });
   }, []);

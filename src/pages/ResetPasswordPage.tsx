@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { updatePassword } from '@/lib/dal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useNavigate } from 'react-router-dom';
@@ -29,7 +29,7 @@ export default function ResetPasswordPage() {
     }
     setLoading(true);
     setError('');
-    const { error } = await supabase.auth.updateUser({ password });
+    const { error } = await updatePassword(password);
     if (error) setError(error.message);
     else setSuccess(true);
     setLoading(false);

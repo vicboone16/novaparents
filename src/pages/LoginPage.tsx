@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { signIn, resetPassword } from '@/lib/dal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Heart, Loader2 } from 'lucide-react';
@@ -16,7 +16,7 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError('');
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await signIn(email, password);
     if (error) setError(error.message);
     setLoading(false);
   }
@@ -25,9 +25,7 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError('');
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
+    const { error } = await resetPassword(email);
     if (error) setError(error.message);
     else setResetSent(true);
     setLoading(false);
@@ -36,7 +34,6 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-6">
       <div className="w-full max-w-sm space-y-6 animate-fade-in">
-        {/* Logo */}
         <div className="text-center">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl gradient-hero shadow-soft">
             <Heart className="h-7 w-7 text-primary-foreground" />
@@ -54,13 +51,7 @@ export default function LoginPage() {
               </div>
             ) : (
               <>
-                <Input
-                  type="email"
-                  placeholder="Email address"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
+                <Input type="email" placeholder="Email address" value={email} onChange={(e) => setEmail(e.target.value)} required />
                 {error && <p className="text-sm text-destructive">{error}</p>}
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -68,11 +59,7 @@ export default function LoginPage() {
                 </Button>
               </>
             )}
-            <button
-              type="button"
-              onClick={() => { setShowReset(false); setError(''); setResetSent(false); }}
-              className="text-sm text-primary font-medium"
-            >
+            <button type="button" onClick={() => { setShowReset(false); setError(''); setResetSent(false); }} className="text-sm text-primary font-medium">
               ← Back to login
             </button>
           </form>
@@ -80,34 +67,18 @@ export default function LoginPage() {
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label className="text-sm font-medium text-foreground mb-1.5 block">Email</label>
-              <Input
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
+              <Input type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
             </div>
             <div>
               <label className="text-sm font-medium text-foreground mb-1.5 block">Password</label>
-              <Input
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
+              <Input type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
             <Button type="submit" className="w-full" disabled={loading}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Sign In
             </Button>
-            <button
-              type="button"
-              onClick={() => { setShowReset(true); setError(''); }}
-              className="text-sm text-primary font-medium"
-            >
+            <button type="button" onClick={() => { setShowReset(true); setError(''); }} className="text-sm text-primary font-medium">
               Forgot password?
             </button>
           </form>
