@@ -130,4 +130,8 @@
   .shadow-card {
     box-shadow: var(--card-shadow);
   }
+
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
 }
