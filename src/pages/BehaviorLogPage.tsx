@@ -103,7 +103,30 @@ export default function BehaviorLogPage() {
 function ABCTab({ userId }: { userId: string }) {
   const [entries, setEntries] = useState<ABCEntry[]>(() => load('bd_behavior_log'));
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ behavior: '', antecedent: '', consequence: '', intensity: '', setting: '', notes: '' });
+  const [form, setForm] = useState(() => {
+    // Check for prefill from Behavior Translator
+    try {
+      const prefill = sessionStorage.getItem('bd_prefill_abc');
+      if (prefill) {
+        sessionStorage.removeItem('bd_prefill_abc');
+        const data = JSON.parse(prefill);
+        return {
+          behavior: data.behavior || '',
+          antecedent: data.antecedent || '',
+          consequence: data.consequence || '',
+          intensity: '',
+          setting: data.setting || '',
+          notes: '',
+        };
+      }
+    } catch {}
+    return { behavior: '', antecedent: '', consequence: '', intensity: '', setting: '', notes: '' };
+  });
+
+  // Auto-open form if prefilled
+  useEffect(() => {
+    if (form.behavior) setShowForm(true);
+  }, []);
 
   useEffect(() => { save('bd_behavior_log', entries); }, [entries]);
 
