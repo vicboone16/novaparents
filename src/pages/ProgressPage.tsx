@@ -1,106 +1,171 @@
-import { BarChart3, TrendingDown, TrendingUp, Bell, Calendar } from 'lucide-react';
+/**
+ * Progress Page
+ * ─────────────
+ * Dual view: Learner Progress + Coach Growth
+ */
 
-const weeklyData = [
-  { day: 'Mon', count: 3 },
-  { day: 'Tue', count: 5 },
-  { day: 'Wed', count: 2 },
-  { day: 'Thu', count: 4 },
-  { day: 'Fri', count: 1 },
-  { day: 'Sat', count: 2 },
-  { day: 'Sun', count: 1 },
-];
+import { useState, useEffect } from 'react';
+import { BarChart3, TrendingDown, Calendar, Bell, Award, BookOpen, PenLine } from 'lucide-react';
+import { getCurrentUser } from '@/lib/dal';
+import { getAllEvents, computeCoachScore, getRubric } from '@/lib/engagement';
 
-const maxCount = Math.max(...weeklyData.map((d) => d.count));
+const TOTAL_LESSONS = 11;
 
 export default function ProgressPage() {
-  const totalThisWeek = weeklyData.reduce((sum, d) => sum + d.count, 0);
+  const [userId, setUserId] = useState('');
+  const [tab, setTab] = useState<'learner' | 'coach'>('learner');
+
+  useEffect(() => { getCurrentUser().then(u => { if (u) setUserId(u.id); }); }, []);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div>
-        <h2 className="font-display text-2xl font-bold text-foreground">
-          Progress & Reminders
-        </h2>
-        <p className="mt-1 text-muted-foreground">
-          Track trends and stay consistent with your plan.
-        </p>
+        <h2 className="font-display text-2xl font-bold text-foreground">Progress</h2>
+        <p className="mt-1 text-sm text-muted-foreground">Track Learner trends and your Coach growth.</p>
       </div>
 
-      {/* Stats */}
-      <div className="grid gap-4 sm:grid-cols-3">
-        <div className="rounded-xl border border-border bg-card p-5 shadow-card">
-          <div className="flex items-center gap-2 text-muted-foreground text-sm mb-2">
-            <BarChart3 className="h-4 w-4" />
-            This Week
-          </div>
-          <p className="font-display text-3xl font-bold text-foreground">{totalThisWeek}</p>
-          <p className="text-xs text-muted-foreground mt-1">behavior entries logged</p>
-        </div>
-        <div className="rounded-xl border border-border bg-card p-5 shadow-card">
-          <div className="flex items-center gap-2 text-success text-sm mb-2">
-            <TrendingDown className="h-4 w-4" />
-            Trend
-          </div>
-          <p className="font-display text-3xl font-bold text-success">↓ 23%</p>
-          <p className="text-xs text-muted-foreground mt-1">fewer incidents vs last week</p>
-        </div>
-        <div className="rounded-xl border border-border bg-card p-5 shadow-card">
-          <div className="flex items-center gap-2 text-primary text-sm mb-2">
-            <Calendar className="h-4 w-4" />
-            Streak
-          </div>
-          <p className="font-display text-3xl font-bold text-primary">5 days</p>
-          <p className="text-xs text-muted-foreground mt-1">consistent logging</p>
-        </div>
+      {/* Tab switcher */}
+      <div className="flex gap-2">
+        <button
+          onClick={() => setTab('learner')}
+          className={`flex-1 rounded-xl py-2 text-sm font-semibold transition-all ${
+            tab === 'learner' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+          }`}
+        >
+          Learner Progress
+        </button>
+        <button
+          onClick={() => setTab('coach')}
+          className={`flex-1 rounded-xl py-2 text-sm font-semibold transition-all ${
+            tab === 'coach' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+          }`}
+        >
+          Coach Growth
+        </button>
       </div>
 
-      {/* Simple Bar Chart */}
-      <div className="rounded-xl border border-border bg-card p-6 shadow-card">
-        <h3 className="font-display font-bold text-foreground mb-4">Weekly Overview</h3>
-        <div className="flex items-end gap-3 h-40">
-          {weeklyData.map((d) => (
-            <div key={d.day} className="flex-1 flex flex-col items-center gap-2">
-              <span className="text-xs font-semibold text-foreground">{d.count}</span>
-              <div
-                className="w-full rounded-lg gradient-hero transition-all duration-500"
-                style={{ height: `${(d.count / maxCount) * 100}%`, minHeight: '8px' }}
-              />
-              <span className="text-xs text-muted-foreground">{d.day}</span>
+      {tab === 'learner' ? <LearnerProgress /> : <CoachGrowth userId={userId} />}
+    </div>
+  );
+}
+
+function LearnerProgress() {
+  // Load behavior logs from localStorage
+  const behaviorLogs = (() => { try { return JSON.parse(localStorage.getItem('bd_behavior_log') || '[]'); } catch { return []; } })();
+  const freqLogs = (() => { try { return JSON.parse(localStorage.getItem('bd_frequency_log') || '[]'); } catch { return []; } })();
+  const durLogs = (() => { try { return JSON.parse(localStorage.getItem('bd_duration_log') || '[]'); } catch { return []; } })();
+
+  const totalLogs = behaviorLogs.length + freqLogs.length + durLogs.length;
+
+  // Simple weekly grouping
+  const today = new Date();
+  const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const weeklyData = weekDays.map((day, i) => {
+    const target = new Date(today);
+    const diff = (today.getDay() || 7) - (i + 1);
+    target.setDate(today.getDate() - diff);
+    const dateStr = target.toISOString().split('T')[0];
+    const count = behaviorLogs.filter((l: any) => l.date === dateStr).length;
+    return { day, count };
+  });
+  const maxCount = Math.max(...weeklyData.map(d => d.count), 1);
+
+  return (
+    <div className="space-y-4 animate-fade-in">
+      <div className="grid gap-3 sm:grid-cols-3">
+        <StatCard icon={PenLine} label="Total Data Logs" value={String(totalLogs)} color="text-primary" />
+        <StatCard icon={BarChart3} label="ABC Entries" value={String(behaviorLogs.length)} color="text-secondary" />
+        <StatCard icon={Calendar} label="Logging Streak" value="—" color="text-accent" sub="Syncs with backend" />
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-5 shadow-card">
+        <h3 className="font-display font-bold text-foreground mb-4">Weekly Behavior Log</h3>
+        <div className="flex items-end gap-3 h-32">
+          {weeklyData.map(d => (
+            <div key={d.day} className="flex-1 flex flex-col items-center gap-1.5">
+              <span className="text-[10px] font-semibold text-foreground">{d.count}</span>
+              <div className="w-full rounded-lg gradient-hero transition-all duration-500" style={{ height: `${(d.count / maxCount) * 100}%`, minHeight: '4px' }} />
+              <span className="text-[10px] text-muted-foreground">{d.day}</span>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Reminders */}
-      <div className="rounded-xl border border-border bg-card p-5 shadow-card">
-        <div className="flex items-center gap-2 mb-4">
-          <Bell className="h-5 w-5 text-secondary" />
-          <h3 className="font-display font-bold text-foreground">Reminders</h3>
+      <div className="rounded-xl border border-border bg-card p-4 shadow-card">
+        <div className="flex items-center gap-2 mb-3">
+          <Bell className="h-4 w-4 text-secondary" />
+          <h3 className="font-display font-bold text-foreground text-sm">Reminders</h3>
         </div>
-        <ul className="space-y-3">
-          <li className="flex items-start gap-3 text-sm">
+        <ul className="space-y-2">
+          <li className="flex items-start gap-2 text-sm">
             <div className="h-2 w-2 rounded-full bg-primary mt-1.5 shrink-0" />
-            <div>
-              <p className="font-medium text-foreground">Complete Module 3: Identifying Triggers</p>
-              <p className="text-muted-foreground">You're almost there — just one section left!</p>
-            </div>
+            <p className="text-muted-foreground">Log today's behaviors to keep your data current.</p>
           </li>
-          <li className="flex items-start gap-3 text-sm">
+          <li className="flex items-start gap-2 text-sm">
             <div className="h-2 w-2 rounded-full bg-secondary mt-1.5 shrink-0" />
-            <div>
-              <p className="font-medium text-foreground">Log today's behaviors</p>
-              <p className="text-muted-foreground">Keeping a consistent log helps your agency team support you better.</p>
-            </div>
-          </li>
-          <li className="flex items-start gap-3 text-sm">
-            <div className="h-2 w-2 rounded-full bg-accent mt-1.5 shrink-0" />
-            <div>
-              <p className="font-medium text-foreground">Review coaching tip: Transitions</p>
-              <p className="text-muted-foreground">Based on your recent logs, this topic might be helpful.</p>
-            </div>
+            <p className="text-muted-foreground">Submit your Evidence Packet when you have enough data.</p>
           </li>
         </ul>
       </div>
+    </div>
+  );
+}
+
+function CoachGrowth({ userId }: { userId: string }) {
+  if (!userId) return null;
+
+  const score = computeCoachScore(userId, TOTAL_LESSONS);
+  const rubric = getRubric();
+  const events = getAllEvents().filter(e => e.userId === userId);
+  const lessonsCompleted = new Set(events.filter(e => e.eventType === 'lesson_complete').map(e => e.meta.lessonKey as string)).size;
+  const reflections = events.filter(e => e.eventType === 'reflection_submitted').length;
+  const quizzes = events.filter(e => e.eventType === 'micro_quiz_submit').length;
+
+  return (
+    <div className="space-y-4 animate-fade-in">
+      {/* Score card */}
+      <div className="rounded-xl border border-border bg-card p-5 shadow-card text-center">
+        <Award className="h-8 w-8 text-primary mx-auto mb-2" />
+        <p className="font-display text-4xl font-bold text-foreground">{score.totalScore}</p>
+        <p className="text-sm text-muted-foreground">Coach Engagement Score</p>
+        <span className={`inline-block mt-2 rounded-full px-3 py-1 text-xs font-bold ${score.billingEligible ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'}`}>
+          {score.billingEligible ? 'Eligible' : 'In Progress'}
+        </span>
+      </div>
+
+      {/* Breakdown */}
+      <div className="rounded-xl border border-border bg-card p-4 shadow-card space-y-3">
+        <h3 className="font-display font-bold text-foreground text-sm">Score Breakdown</h3>
+        {score.breakdown.map((b, i) => (
+          <div key={i} className="space-y-1">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-foreground">{b.category} <span className="text-muted-foreground">({Math.round(rubric[i].weight * 100)}%)</span></span>
+              <span className="font-semibold text-foreground">{b.score}/100</span>
+            </div>
+            <div className="h-2 rounded-full bg-border overflow-hidden">
+              <div className="h-full rounded-full gradient-hero transition-all" style={{ width: `${b.score}%` }} />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Activity stats */}
+      <div className="grid grid-cols-3 gap-3">
+        <StatCard icon={BookOpen} label="Lessons" value={`${lessonsCompleted}/${TOTAL_LESSONS}`} color="text-primary" />
+        <StatCard icon={PenLine} label="Reflections" value={String(reflections)} color="text-accent" />
+        <StatCard icon={BarChart3} label="Quizzes" value={String(quizzes)} color="text-secondary" />
+      </div>
+    </div>
+  );
+}
+
+function StatCard({ icon: Icon, label, value, color, sub }: { icon: React.ElementType; label: string; value: string; color: string; sub?: string }) {
+  return (
+    <div className="rounded-xl border border-border bg-card p-4 shadow-card text-center">
+      <Icon className={`h-4 w-4 mx-auto mb-1 ${color}`} />
+      <p className="font-display text-xl font-bold text-foreground">{value}</p>
+      <p className="text-[10px] text-muted-foreground">{label}</p>
+      {sub && <p className="text-[9px] text-muted-foreground/60 mt-0.5">{sub}</p>}
     </div>
   );
 }

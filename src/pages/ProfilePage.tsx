@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getCurrentUser, signOut, checkHandshake, getMaskedBackendUrl, getMyClients, type ClientSummary } from '@/lib/dal';
-import { User, Bell, Wrench, LogOut, CheckCircle2, XCircle } from 'lucide-react';
+import { User, Bell, Wrench, LogOut, CheckCircle2, XCircle, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { useNavigate } from 'react-router-dom';
@@ -8,15 +8,12 @@ import { useNavigate } from 'react-router-dom';
 export default function ProfilePage() {
   const [user, setUser] = useState<any>(null);
   const [clients, setClients] = useState<ClientSummary[]>([]);
-  const [notifications, setNotifications] = useState(() => {
-    return localStorage.getItem('bd_notifications') !== 'false';
-  });
+  const [notifications, setNotifications] = useState(() => localStorage.getItem('bd_notifications') !== 'false');
   const [diagnostics, setDiagnostics] = useState<{
-    appSlug: string | null;
-    supabaseUrl: string;
-    lastPing: string | null;
+    appSlug: string | null; supabaseUrl: string; lastPing: string | null;
   }>({ appSlug: null, supabaseUrl: '', lastPing: null });
   const [showDiag, setShowDiag] = useState(false);
+  const [copied, setCopied] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -28,11 +25,7 @@ export default function ProfilePage() {
     async function ping() {
       try {
         const { appSlug } = await checkHandshake();
-        setDiagnostics({
-          appSlug,
-          supabaseUrl: getMaskedBackendUrl(),
-          lastPing: new Date().toLocaleString(),
-        });
+        setDiagnostics({ appSlug, supabaseUrl: getMaskedBackendUrl(), lastPing: new Date().toLocaleString() });
       } catch {
         setDiagnostics(prev => ({ ...prev, lastPing: 'Failed' }));
       }
@@ -50,24 +43,44 @@ export default function ProfilePage() {
     navigate('/login');
   }
 
+  // Simulated invite code (would come from backend in production)
+  const inviteCode = user?.id ? user.id.slice(0, 8).toUpperCase() : '...';
+
+  function copyInvite() {
+    navigator.clipboard.writeText(`Join my Coach training: ${window.location.origin}/invite?code=${inviteCode}`);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <h2 className="font-display text-2xl font-bold text-foreground">Profile</h2>
 
       {/* User Info */}
-      <div className="rounded-xl border border-border bg-card p-5 shadow-card flex items-center gap-4">
+      <div className="rounded-xl border border-border bg-card p-4 shadow-card flex items-center gap-4">
         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
           <User className="h-6 w-6 text-primary" />
         </div>
         <div className="flex-1 min-w-0">
           <p className="font-display font-bold text-foreground truncate">{user?.email || 'Loading…'}</p>
-          <p className="text-sm text-muted-foreground">Parent Account</p>
+          <p className="text-sm text-muted-foreground">Coach Account</p>
         </div>
       </div>
 
-      {/* My Clients */}
-      <div className="rounded-xl border border-border bg-card p-5 shadow-card">
-        <h3 className="font-display font-bold text-foreground mb-3">My Client(s)</h3>
+      {/* Invite Code */}
+      <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-2">
+        <p className="text-xs font-semibold text-primary uppercase tracking-wide">Your Invite Code</p>
+        <div className="flex items-center gap-2">
+          <code className="flex-1 rounded-lg bg-card border border-border px-3 py-2 text-sm font-mono text-foreground">{inviteCode}</code>
+          <Button size="sm" variant="outline" onClick={copyInvite} className="gap-1">
+            <Copy className="h-3.5 w-3.5" /> {copied ? 'Copied!' : 'Copy'}
+          </Button>
+        </div>
+      </div>
+
+      {/* My Learners */}
+      <div className="rounded-xl border border-border bg-card p-4 shadow-card">
+        <h3 className="font-display font-bold text-foreground mb-3 text-sm">My Learner(s)</h3>
         {clients.length > 0 ? (
           <ul className="space-y-2">
             {clients.map(c => (
@@ -78,14 +91,12 @@ export default function ProfilePage() {
             ))}
           </ul>
         ) : (
-          <p className="text-sm text-muted-foreground">
-            Your assigned clients will appear here once connected to the backend.
-          </p>
+          <p className="text-sm text-muted-foreground">Your assigned Learners will appear here once connected.</p>
         )}
       </div>
 
       {/* Notifications */}
-      <div className="rounded-xl border border-border bg-card p-5 shadow-card flex items-center justify-between">
+      <div className="rounded-xl border border-border bg-card p-4 shadow-card flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Bell className="h-5 w-5 text-muted-foreground" />
           <div>
@@ -98,10 +109,7 @@ export default function ProfilePage() {
 
       {/* Diagnostics */}
       <div className="rounded-xl border border-border bg-card shadow-card overflow-hidden">
-        <button
-          onClick={() => setShowDiag(!showDiag)}
-          className="w-full flex items-center justify-between p-5"
-        >
+        <button onClick={() => setShowDiag(!showDiag)} className="w-full flex items-center justify-between p-4">
           <div className="flex items-center gap-3">
             <Wrench className="h-5 w-5 text-muted-foreground" />
             <span className="font-display font-bold text-foreground text-sm">Diagnostics</span>
@@ -109,22 +117,17 @@ export default function ProfilePage() {
           <span className="text-xs text-muted-foreground">{showDiag ? 'Hide' : 'Show'}</span>
         </button>
         {showDiag && (
-          <div className="border-t border-border p-5 space-y-3 animate-fade-in">
-            <DiagRow
-              label="Handshake app_slug"
-              value={diagnostics.appSlug || '…'}
-              ok={diagnostics.appSlug === 'novatrack'}
-            />
-            <DiagRow label="Backend URL" value={diagnostics.supabaseUrl || '…'} />
-            <DiagRow label="Last DB Ping" value={diagnostics.lastPing || '…'} ok={diagnostics.lastPing !== 'Failed'} />
+          <div className="border-t border-border p-4 space-y-2 animate-fade-in">
+            <DiagRow label="app_slug" value={diagnostics.appSlug || '…'} ok={diagnostics.appSlug === 'novatrack'} />
+            <DiagRow label="Backend" value={diagnostics.supabaseUrl || '…'} />
+            <DiagRow label="Last Ping" value={diagnostics.lastPing || '…'} ok={diagnostics.lastPing !== 'Failed'} />
           </div>
         )}
       </div>
 
       {/* Logout */}
       <Button variant="outline" className="w-full gap-2" onClick={handleLogout}>
-        <LogOut className="h-4 w-4" />
-        Sign Out
+        <LogOut className="h-4 w-4" /> Sign Out
       </Button>
     </div>
   );
@@ -132,13 +135,11 @@ export default function ProfilePage() {
 
 function DiagRow({ label, value, ok }: { label: string; value: string; ok?: boolean }) {
   return (
-    <div className="flex items-center justify-between text-sm">
+    <div className="flex items-center justify-between text-xs">
       <span className="text-muted-foreground">{label}</span>
       <div className="flex items-center gap-1.5">
-        <span className="font-mono text-foreground text-xs">{value}</span>
-        {ok !== undefined && (
-          ok ? <CheckCircle2 className="h-4 w-4 text-success" /> : <XCircle className="h-4 w-4 text-destructive" />
-        )}
+        <span className="font-mono text-foreground">{value}</span>
+        {ok !== undefined && (ok ? <CheckCircle2 className="h-3.5 w-3.5 text-success" /> : <XCircle className="h-3.5 w-3.5 text-destructive" />)}
       </div>
     </div>
   );
