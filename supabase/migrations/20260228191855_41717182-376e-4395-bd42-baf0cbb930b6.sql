@@ -1,0 +1,1 @@
+CREATE POLICY "Anyone can read handshake" ON public.app_handshake FOR SELECT TO authenticated USING (true);

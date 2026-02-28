@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { BookOpen, CheckCircle2, Lock, ArrowLeft, ArrowRight, Sparkles, Clock, MessageSquare } from 'lucide-react';
+import { BookOpen, CheckCircle2, Lock, ArrowLeft, ArrowRight, Sparkles, Clock, MessageSquare, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { getCurrentUser } from '@/lib/dal';
@@ -8,6 +8,7 @@ import {
   logLessonOpen,
   logLessonComplete as logLessonCompleteEvent,
   logReflectionSubmitted,
+  logMicroQuizSubmit,
   recordLessonOpen,
   recordInteraction,
   canCompleteLesson,
@@ -16,11 +17,21 @@ import {
   getSessionId,
 } from '@/lib/engagement';
 
+// ─── Quiz type ───────────────────────────────────────────
+
+interface QuizQuestion {
+  question: string;
+  options: string[];
+  correctIndex: number;
+  explanation: string;
+}
+
 interface Lesson {
   title: string;
   content: string;
   actionStep: string;
   reflection: string;
+  quiz?: QuizQuestion[];
 }
 
 interface Module {
@@ -30,32 +41,76 @@ interface Module {
   lessons: Lesson[];
 }
 
+// ─── Module data with micro-quizzes ─────────────────────
+
 const modules: Module[] = [
   {
     id: 1, title: 'Understanding Behavior', description: 'Learn why behavior happens and what it communicates.',
     lessons: [
-      { title: 'Behavior Is Communication', content: 'All behavior serves a purpose. When a child acts out, they are communicating a need — for attention, escape, a tangible item, or sensory input.', actionStep: 'Today, when you see a challenging behavior, pause and ask: "What is my client trying to tell me?"', reflection: 'What need do you think was behind the last challenging behavior you saw?' },
-      { title: 'The Four Functions', content: 'Behavior generally falls into four functions: Attention, Escape, Tangible, and Sensory. Understanding which function drives a behavior helps you respond effectively.', actionStep: 'Pick one behavior you see often and try to identify its function.', reflection: 'Which function do you think applies most to your client?' },
+      {
+        title: 'Behavior Is Communication',
+        content: 'All behavior serves a purpose. When a child acts out, they are communicating a need — for attention, escape, a tangible item, or sensory input.',
+        actionStep: 'Today, when you see a challenging behavior, pause and ask: "What is my Learner trying to tell me?"',
+        reflection: 'What need do you think was behind the last challenging behavior you saw?',
+        quiz: [
+          { question: 'When a Learner acts out, they are most likely:', options: ['Being defiant on purpose', 'Communicating an unmet need', 'Trying to annoy adults', 'Not aware of what they are doing'], correctIndex: 1, explanation: 'All behavior serves a purpose — the Learner is communicating a need for attention, escape, a tangible item, or sensory input.' },
+        ],
+      },
+      {
+        title: 'The Four Functions',
+        content: 'Behavior generally falls into four functions: Attention, Escape, Tangible, and Sensory. Understanding which function drives a behavior helps you respond effectively.',
+        actionStep: 'Pick one behavior you see often and try to identify its function.',
+        reflection: 'Which function do you think applies most to your Learner?',
+        quiz: [
+          { question: 'Which of the following is NOT one of the four functions of behavior?', options: ['Attention', 'Escape', 'Punishment', 'Sensory'], correctIndex: 2, explanation: 'The four functions are Attention, Escape, Tangible, and Sensory. Punishment is a consequence, not a function of behavior.' },
+          { question: 'A Learner covers their ears in a loud room. This behavior likely serves which function?', options: ['Attention', 'Tangible', 'Sensory', 'Escape'], correctIndex: 2, explanation: 'Covering ears in response to loud noise is a sensory-driven behavior — the Learner is trying to regulate sensory input.' },
+        ],
+      },
     ],
   },
   {
     id: 2, title: 'The ABCs of Behavior', description: 'Antecedent, Behavior, Consequence — the building blocks.',
     lessons: [
-      { title: 'What Are ABCs?', content: 'A = Antecedent (what happens before), B = Behavior (what the person does), C = Consequence (what happens after). This framework helps you see patterns.', actionStep: 'Write down one ABC sequence from today.', reflection: 'Was the consequence reinforcing the behavior or discouraging it?' },
-      { title: 'Finding Patterns', content: 'When you track ABCs over time, patterns emerge. You might notice behaviors happen at specific times, places, or after particular triggers.', actionStep: 'Review your behavior log and look for repeating antecedents.', reflection: 'Did you notice any patterns? What surprised you?' },
+      {
+        title: 'What Are ABCs?',
+        content: 'A = Antecedent (what happens before), B = Behavior (what the person does), C = Consequence (what happens after). This framework helps you see patterns.',
+        actionStep: 'Write down one ABC sequence from today.',
+        reflection: 'Was the consequence reinforcing the behavior or discouraging it?',
+        quiz: [
+          { question: 'In the ABC framework, what does the "A" stand for?', options: ['Action', 'Antecedent', 'Assessment', 'Approach'], correctIndex: 1, explanation: 'A = Antecedent — what happens right before the behavior occurs.' },
+        ],
+      },
+      {
+        title: 'Finding Patterns',
+        content: 'When you track ABCs over time, patterns emerge. You might notice behaviors happen at specific times, places, or after particular triggers.',
+        actionStep: 'Review your behavior log and look for repeating antecedents.',
+        reflection: 'Did you notice any patterns? What surprised you?',
+        quiz: [
+          { question: 'Why is tracking ABCs over time important?', options: ['To collect data for reports', 'To identify patterns and triggers', 'To prove the Learner misbehaves', 'To satisfy agency requirements'], correctIndex: 1, explanation: 'Tracking ABCs reveals patterns — you can identify when, where, and why behaviors occur most often.' },
+        ],
+      },
     ],
   },
   {
     id: 3, title: 'Identifying Triggers', description: 'Recognize what sets off challenging behaviors.',
     lessons: [
-      { title: 'Common Triggers', content: 'Triggers include transitions, demands, sensory overload, hunger, fatigue, and changes in routine. Knowing triggers lets you prepare.', actionStep: 'List 3 situations where challenging behavior tends to happen.', reflection: 'Can you modify any of these triggers to prevent the behavior?' },
+      {
+        title: 'Common Triggers',
+        content: 'Triggers include transitions, demands, sensory overload, hunger, fatigue, and changes in routine. Knowing triggers lets you prepare.',
+        actionStep: 'List 3 situations where challenging behavior tends to happen.',
+        reflection: 'Can you modify any of these triggers to prevent the behavior?',
+        quiz: [
+          { question: 'Which of these is a common trigger for challenging behavior?', options: ['A predictable routine', 'Transitions between activities', 'A calm environment', 'Getting enough sleep'], correctIndex: 1, explanation: 'Transitions are one of the most common triggers — moving from a preferred to a non-preferred activity often causes difficulty.' },
+          { question: 'What is the main benefit of identifying triggers?', options: ['Blaming the Learner', 'Avoiding all demands', 'Preparing and preventing behaviors', 'Documenting for records'], correctIndex: 2, explanation: 'Knowing triggers lets you prepare strategies and environmental changes that can prevent challenging behaviors before they start.' },
+        ],
+      },
     ],
   },
-  { id: 4, title: 'Replacement Behaviors', description: 'Teach alternatives that meet the same need.', lessons: [{ title: 'Coming Soon', content: 'This module is being prepared.', actionStep: 'Stay tuned!', reflection: '' }] },
-  { id: 5, title: 'Reinforcement Strategies', description: 'Effective ways to encourage positive behavior.', lessons: [{ title: 'Coming Soon', content: 'This module is being prepared.', actionStep: 'Stay tuned!', reflection: '' }] },
-  { id: 6, title: 'Managing Crisis Moments', description: 'Stay calm and respond effectively during escalation.', lessons: [{ title: 'Coming Soon', content: 'This module is being prepared.', actionStep: 'Stay tuned!', reflection: '' }] },
-  { id: 7, title: 'Building Routines', description: 'Create structure that prevents challenging behaviors.', lessons: [{ title: 'Coming Soon', content: 'This module is being prepared.', actionStep: 'Stay tuned!', reflection: '' }] },
-  { id: 8, title: 'Celebrating Progress', description: "Recognize growth — yours and your client's.", lessons: [{ title: 'Coming Soon', content: 'This module is being prepared.', actionStep: 'Stay tuned!', reflection: '' }] },
+  { id: 4, title: 'Replacement Behaviors', description: 'Teach alternatives that meet the same need.', lessons: [{ title: 'Coming Soon', content: 'This module is being prepared.', actionStep: 'Stay tuned!', reflection: '', quiz: [] }] },
+  { id: 5, title: 'Reinforcement Strategies', description: 'Effective ways to encourage positive behavior.', lessons: [{ title: 'Coming Soon', content: 'This module is being prepared.', actionStep: 'Stay tuned!', reflection: '', quiz: [] }] },
+  { id: 6, title: 'Managing Crisis Moments', description: 'Stay calm and respond effectively during escalation.', lessons: [{ title: 'Coming Soon', content: 'This module is being prepared.', actionStep: 'Stay tuned!', reflection: '', quiz: [] }] },
+  { id: 7, title: 'Building Routines', description: 'Create structure that prevents challenging behaviors.', lessons: [{ title: 'Coming Soon', content: 'This module is being prepared.', actionStep: 'Stay tuned!', reflection: '', quiz: [] }] },
+  { id: 8, title: 'Celebrating Progress', description: "Recognize growth — yours and your Learner's.", lessons: [{ title: 'Coming Soon', content: 'This module is being prepared.', actionStep: 'Stay tuned!', reflection: '', quiz: [] }] },
 ];
 
 const PROGRESS_KEY = 'bd_curriculum_progress';
@@ -77,6 +132,10 @@ export default function CurriculumPage() {
   const [completionCheck, setCompletionCheck] = useState<{ allowed: boolean; reason?: string; remainingSec?: number } | null>(null);
   const [countdown, setCountdown] = useState(0);
 
+  // Quiz state
+  const [quizAnswers, setQuizAnswers] = useState<Record<number, number | null>>({});
+  const [quizSubmitted, setQuizSubmitted] = useState<Record<number, boolean>>({});
+
   useEffect(() => {
     getCurrentUser().then(u => { if (u) setUserId(u.id); });
   }, []);
@@ -91,6 +150,8 @@ export default function CurriculumPage() {
       setReflectionText('');
       setReflectionSubmitted(false);
       setCompletionCheck(null);
+      setQuizAnswers({});
+      setQuizSubmitted({});
     }
   }, [viewing?.moduleId, viewing?.lessonIdx, userId]);
 
@@ -124,6 +185,18 @@ export default function CurriculumPage() {
     setReflectionSubmitted(true);
   }
 
+  function handleQuizAnswer(qIdx: number, optionIdx: number) {
+    if (quizSubmitted[qIdx]) return;
+    setQuizAnswers(prev => ({ ...prev, [qIdx]: optionIdx }));
+  }
+
+  function handleQuizSubmit(qIdx: number) {
+    if (!viewing || !userId) return;
+    setQuizSubmitted(prev => ({ ...prev, [qIdx]: true }));
+    recordInteraction(viewing.moduleId, viewing.lessonIdx);
+    logMicroQuizSubmit(userId, viewing.moduleId, viewing.lessonIdx);
+  }
+
   function handleMarkComplete() {
     if (!viewing || !userId) return;
     const check = canCompleteLesson(viewing.moduleId, viewing.lessonIdx);
@@ -134,7 +207,6 @@ export default function CurriculumPage() {
       return;
     }
 
-    // Complete!
     recordLessonComplete(viewing.moduleId, viewing.lessonIdx);
     logLessonCompleteEvent(userId, viewing.moduleId, viewing.lessonIdx);
     evaluateLessonCompletion(userId, getSessionId() || '', viewing.moduleId, viewing.lessonIdx);
@@ -145,12 +217,13 @@ export default function CurriculumPage() {
   const totalCompleted = modules.reduce((sum, m) => sum + completedCount(m), 0);
   const totalLessons = modules.reduce((sum, m) => sum + m.lessons.length, 0);
 
-  // Lesson View
+  // ─── Lesson View ───────────────────────────────────────
   if (viewing) {
     const mod = modules.find(m => m.id === viewing.moduleId)!;
     const lesson = mod.lessons[viewing.lessonIdx];
     const key = `${mod.id}-${viewing.lessonIdx}`;
     const done = !!progress[key];
+    const quizzes = lesson.quiz || [];
 
     return (
       <div className="space-y-6 animate-fade-in">
@@ -169,7 +242,63 @@ export default function CurriculumPage() {
           <p className="text-sm text-foreground">{lesson.actionStep}</p>
         </div>
 
-        {/* Reflection — micro-interaction required for completion */}
+        {/* Micro-Quizzes */}
+        {quizzes.length > 0 && (
+          <div className="space-y-4">
+            <h4 className="font-display font-bold text-foreground text-sm flex items-center gap-1.5">
+              <HelpCircle className="h-4 w-4 text-secondary" /> Knowledge Check
+            </h4>
+            {quizzes.map((q, qIdx) => {
+              const selected = quizAnswers[qIdx] ?? null;
+              const submitted = !!quizSubmitted[qIdx];
+              const isCorrect = submitted && selected === q.correctIndex;
+
+              return (
+                <div key={qIdx} className="rounded-xl border border-border bg-card p-5 shadow-card space-y-3">
+                  <p className="text-sm font-semibold text-foreground">{q.question}</p>
+                  <div className="space-y-2">
+                    {q.options.map((opt, oIdx) => {
+                      let optClass = 'border-border bg-muted/30 hover:bg-muted/60 cursor-pointer';
+                      if (selected === oIdx && !submitted) {
+                        optClass = 'border-primary bg-primary/10 ring-1 ring-primary cursor-pointer';
+                      } else if (submitted && oIdx === q.correctIndex) {
+                        optClass = 'border-success bg-success/10';
+                      } else if (submitted && selected === oIdx && oIdx !== q.correctIndex) {
+                        optClass = 'border-destructive bg-destructive/10';
+                      } else if (submitted) {
+                        optClass = 'border-border bg-muted/20 opacity-60';
+                      }
+
+                      return (
+                        <button
+                          key={oIdx}
+                          onClick={() => handleQuizAnswer(qIdx, oIdx)}
+                          disabled={submitted}
+                          className={`w-full text-left rounded-lg border p-3 text-sm transition-all ${optClass}`}
+                        >
+                          <span className="font-medium text-foreground">{String.fromCharCode(65 + oIdx)}.</span>{' '}
+                          <span className="text-foreground">{opt}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {!submitted ? (
+                    <Button size="sm" variant="outline" onClick={() => handleQuizSubmit(qIdx)} disabled={selected === null}>
+                      Submit Answer
+                    </Button>
+                  ) : (
+                    <div className={`rounded-lg p-3 text-sm ${isCorrect ? 'bg-success/10 border border-success/20' : 'bg-warning/10 border border-warning/20'}`}>
+                      <p className="font-semibold text-foreground">{isCorrect ? '✅ Correct!' : '❌ Not quite.'}</p>
+                      <p className="text-muted-foreground mt-1">{q.explanation}</p>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Reflection */}
         {lesson.reflection && (
           <div className="rounded-xl border border-accent/20 bg-accent/5 p-5 space-y-3">
             <h4 className="font-display font-bold text-accent text-sm mb-1 flex items-center gap-1.5">
@@ -185,12 +314,7 @@ export default function CurriculumPage() {
                   onChange={(e) => setReflectionText(e.target.value)}
                   className="mt-2"
                 />
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleReflectionSubmit}
-                  disabled={!reflectionText.trim()}
-                >
+                <Button size="sm" variant="outline" onClick={handleReflectionSubmit} disabled={!reflectionText.trim()}>
                   Submit Reflection
                 </Button>
               </>
@@ -209,9 +333,7 @@ export default function CurriculumPage() {
             <div>
               <p>{completionCheck.reason}</p>
               {countdown > 0 && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Time remaining: {countdown}s
-                </p>
+                <p className="text-xs text-muted-foreground mt-1">Time remaining: {countdown}s</p>
               )}
             </div>
           </div>
@@ -242,7 +364,7 @@ export default function CurriculumPage() {
     );
   }
 
-  // Module List
+  // ─── Module List ───────────────────────────────────────
   return (
     <div className="space-y-5">
       <div>
@@ -250,7 +372,6 @@ export default function CurriculumPage() {
         <p className="mt-1 text-sm text-muted-foreground">Complete each module at your own pace.</p>
       </div>
 
-      {/* Progress bar */}
       <div className="rounded-xl bg-muted p-4">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-medium text-foreground">Your Progress</span>
@@ -261,7 +382,6 @@ export default function CurriculumPage() {
         </div>
       </div>
 
-      {/* Modules */}
       <div className="space-y-3">
         {modules.map((mod) => {
           const unlocked = isModuleUnlocked(mod);
