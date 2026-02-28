@@ -1,24 +1,34 @@
 /**
  * Toolkit Page
  * ────────────
- * Combines: Learn modules, "What do I do when…" library,
- * and parent-safe Replacement Behaviors.
+ * Combines: Nova Academy, Learn modules, Library,
+ * Behavior Analysis tools, and Caregiver Data.
  */
 
-import { useState } from 'react';
-import { BookOpen, Library, Users, Sparkles, HelpCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { BookOpen, Library, Users, Sparkles, HelpCircle, GraduationCap } from 'lucide-react';
 import CurriculumPage from './CurriculumPage';
 import LibraryPage from './LibraryPage';
+import NovaAcademyPage from './NovaAcademyPage';
 import { CaregiverDataView } from '@/components/CaregiverDataView';
 import { BehaviorTranslator } from '@/components/BehaviorTranslator';
 import { ReinforcementChecker } from '@/components/ReinforcementChecker';
 
-type Tab = 'learn' | 'library' | 'translator' | 'reinforcing' | 'caregiver';
+type Tab = 'academy' | 'learn' | 'library' | 'translator' | 'reinforcing' | 'caregiver';
 
 export default function ToolkitPage() {
-  const [tab, setTab] = useState<Tab>('learn');
+  const [searchParams] = useSearchParams();
+  const [tab, setTab] = useState<Tab>(() => {
+    const urlTab = searchParams.get('tab');
+    if (urlTab && ['academy','learn','library','translator','reinforcing','caregiver'].includes(urlTab)) {
+      return urlTab as Tab;
+    }
+    return 'academy';
+  });
 
   const tabs: { key: Tab; label: string; icon: React.ElementType }[] = [
+    { key: 'academy', label: 'Academy', icon: GraduationCap },
     { key: 'learn', label: 'Learn', icon: BookOpen },
     { key: 'library', label: 'What Do I Do…', icon: Library },
     { key: 'translator', label: 'Translator', icon: Sparkles },
@@ -52,6 +62,7 @@ export default function ToolkitPage() {
 
       {/* Tab content */}
       <div className="animate-fade-in">
+        {tab === 'academy' && <NovaAcademyPage />}
         {tab === 'learn' && <CurriculumPage />}
         {tab === 'library' && <LibraryPage />}
         {tab === 'translator' && <BehaviorTranslator />}

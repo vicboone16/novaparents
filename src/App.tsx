@@ -20,6 +20,7 @@ import ProfilePage from "@/pages/ProfilePage";
 import AuditDashboardPage from "@/pages/AuditDashboardPage";
 import InviteAcceptPage from "@/pages/InviteAcceptPage";
 import NotFound from "./pages/NotFound";
+import { CoachBotFAB } from "./components/CoachBot";
 
 const queryClient = new QueryClient();
 
@@ -64,21 +65,24 @@ function AppContent() {
   }
 
   return (
-    <AppLayout>
-      <Routes>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/toolkit" element={<ToolkitPage />} />
-        <Route path="/log" element={<BehaviorLogPage />} />
-        <Route path="/progress" element={<ProgressPage />} />
-        <Route path="/profile" element={<ProfilePage />} />
-        <Route path="/audit" element={<AuditDashboardPage />} />
-        {/* Legacy redirects */}
-        <Route path="/learn" element={<Navigate to="/toolkit" replace />} />
-        <Route path="/library" element={<Navigate to="/toolkit" replace />} />
-        <Route path="/login" element={<Navigate to="/" replace />} />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </AppLayout>
+    <>
+      <AppLayout>
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/toolkit" element={<ToolkitPage />} />
+          <Route path="/log" element={<BehaviorLogPage />} />
+          <Route path="/progress" element={<ProgressPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/audit" element={<AuditDashboardPage />} />
+          {/* Legacy redirects */}
+          <Route path="/learn" element={<Navigate to="/toolkit" replace />} />
+          <Route path="/library" element={<Navigate to="/toolkit" replace />} />
+          <Route path="/login" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </AppLayout>
+      <CoachBotFAB />
+    </>
   );
 }
 

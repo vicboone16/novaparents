@@ -102,54 +102,8 @@ export interface ReplacementBehavior {
   generalization: string;
 }
 
-/** Seed data used as fallback when no DB table exists yet. */
-const SEED_LIBRARY: ReplacementBehavior[] = [
-  {
-    id: '1', trigger: 'Hitting when frustrated',
-    function: 'escape', ageBand: 'early-childhood', setting: 'home', commLevel: 'emerging',
-    definition: 'The child uses physical aggression (hitting) to communicate frustration or escape demands.',
-    teachingSteps: ['Teach a "break" card or gesture', 'Practice during calm moments', 'Prompt the replacement when frustration begins', 'Fade prompts over time'],
-    prompts: ['Hand-over-hand to use break card', 'Point to break card', 'Verbal: "Use your card"'],
-    reinforcement: 'Immediately honor the break request. Praise: "Great job asking for a break!"',
-    generalization: 'Practice in multiple rooms. Introduce with different caregivers.',
-  },
-  {
-    id: '2', trigger: 'Screaming for items',
-    function: 'tangible', ageBand: 'early-childhood', setting: 'home', commLevel: 'pre-verbal',
-    definition: 'The child screams or cries to obtain desired items rather than using an appropriate request.',
-    teachingSteps: ['Model pointing or signing "want"', 'Wait for calm before giving item', 'Use first/then: "First ask, then you get it"', 'Reinforce any approximation of asking'],
-    prompts: ['Physical prompt to point', 'Model sign', 'Verbal: "Show me what you want"'],
-    reinforcement: 'Give the item immediately when the child uses the replacement. "You asked so nicely!"',
-    generalization: 'Use at mealtimes, during play, and in stores.',
-  },
-  {
-    id: '3', trigger: 'Running away during transitions',
-    function: 'escape', ageBand: 'school-age', setting: 'school', commLevel: 'verbal',
-    definition: 'The child runs from the area when asked to transition to a less preferred activity.',
-    teachingSteps: ['Use visual timer warnings', 'Teach "I need a minute" phrase', 'Offer choice of how to transition', 'Gradually reduce transition time'],
-    prompts: ['Show visual timer', 'Verbal: "What can you say?"', 'Gesture toward transition area'],
-    reinforcement: 'Praise staying in area: "You handled that transition so well!" Offer preferred activity after.',
-    generalization: 'Use in hallways, cafeteria, and at home.',
-  },
-  {
-    id: '4', trigger: 'Repetitive rocking or hand-flapping',
-    function: 'sensory', ageBand: 'early-childhood', setting: 'home', commLevel: 'pre-verbal',
-    definition: 'The child engages in self-stimulatory behavior that may interfere with learning.',
-    teachingSteps: ['Identify sensory need being met', 'Offer appropriate alternative (fidget, swing)', 'Schedule sensory breaks', 'Redirect gently without punishment'],
-    prompts: ['Offer fidget tool', 'Guide to sensory area', 'Verbal: "Let\'s take a sensory break"'],
-    reinforcement: 'Praise use of alternatives: "I love how you used your fidget!" Allow sensory breaks.',
-    generalization: 'Keep sensory tools available in all settings.',
-  },
-  {
-    id: '5', trigger: 'Constant calling out for adult attention',
-    function: 'attention', ageBand: 'school-age', setting: 'school', commLevel: 'verbal',
-    definition: 'The child frequently calls out, interrupts, or makes noises to get adult attention.',
-    teachingSteps: ['Teach hand-raising or signal', 'Give attention for appropriate bids', 'Use planned ignoring for call-outs', 'Set up check-in schedule'],
-    prompts: ['Point to hand-raise visual', 'Verbal: "Raise your hand and I\'ll come"', 'Nonverbal: thumbs up when hand raised'],
-    reinforcement: 'Respond quickly when appropriate signal is used. "Thank you for raising your hand!"',
-    generalization: 'Practice at home (use a similar signal at dinner table).',
-  },
-];
+/** Seed data — expanded library covering all 4 functions × 3 age bands × 3 settings */
+import { SEED_LIBRARY } from './dal-seed-library';
 
 /**
  * Fetch replacement behaviors.

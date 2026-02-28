@@ -17,6 +17,7 @@ export type EngagementEventType =
   | 'module_open'
   | 'lesson_open'
   | 'lesson_complete'
+  | 'lesson_completed'
   | 'reflection_submitted'
   | 'micro_quiz_submit'
   | 'behavior_log_created'
