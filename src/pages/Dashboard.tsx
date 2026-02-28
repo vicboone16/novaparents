@@ -10,6 +10,7 @@ import { Link } from 'react-router-dom';
 import { getCurrentUser } from '@/lib/dal';
 import { Button } from '@/components/ui/button';
 import { getPackets, submitEvidencePacket, type EvidencePacket, type PacketStatus } from '@/lib/evidence';
+import { EvidencePacketPreview } from '@/components/EvidencePacketPreview';
 
 const quickActions = [
   { to: '/log', icon: PenLine, label: 'Log Data', color: 'bg-secondary/10 text-secondary' },
@@ -31,6 +32,7 @@ export default function Dashboard() {
   const [userId, setUserId] = useState('');
   const [packets, setPackets] = useState<EvidencePacket[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
 
   useEffect(() => {
     getCurrentUser().then((user) => {
@@ -138,13 +140,25 @@ export default function Dashboard() {
         <Button
           size="sm"
           className="w-full gap-1.5"
-          onClick={handleSubmitPacket}
+          onClick={() => setShowPreview(true)}
           disabled={submitting}
         >
           <Send className="h-4 w-4" />
           {submitting ? 'Submitting…' : latestPacket ? 'Submit New Packet' : 'Submit Evidence Packet'}
         </Button>
       </section>
+
+      {/* Evidence Packet Preview */}
+      <EvidencePacketPreview
+        userId={userId}
+        open={showPreview}
+        onClose={() => setShowPreview(false)}
+        onConfirmSubmit={async () => {
+          await handleSubmitPacket();
+          setShowPreview(false);
+        }}
+        submitting={submitting}
+      />
 
       {/* Today's Focus */}
       <section className="rounded-xl border border-primary/20 bg-card p-4 shadow-soft">
