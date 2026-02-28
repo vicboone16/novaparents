@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 
 type HandshakeStatus = 'loading' | 'valid' | 'invalid' | 'error';
 
@@ -10,7 +10,7 @@ export function useBackendGuard() {
   useEffect(() => {
     async function checkHandshake() {
       try {
-        const { data, error } = await supabase
+        const { data, error } = await (supabase as any)
           .from('app_handshake')
           .select('app_slug')
           .eq('id', 1)
@@ -23,7 +23,7 @@ export function useBackendGuard() {
           return;
         }
 
-        if (data?.app_slug === 'novatrack') {
+        if ((data as any)?.app_slug === 'novatrack') {
           setStatus('valid');
         } else {
           setErrorMessage('Wrong backend connected.');

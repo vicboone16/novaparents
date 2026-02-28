@@ -1,13 +1,2 @@
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('Supabase credentials not configured. Connect your Supabase project in Lovable settings.');
-}
-
-export const supabase = createClient(
-  supabaseUrl || 'https://placeholder.supabase.co',
-  supabaseAnonKey || 'placeholder-key'
-);
+// Re-export from the auto-generated client pointing to the NovaTrack backend
+export { supabase } from '@/integrations/supabase/client';
