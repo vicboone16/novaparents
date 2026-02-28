@@ -13,11 +13,10 @@ import type { Session } from "@supabase/supabase-js";
 import LoginPage from "@/pages/LoginPage";
 import ResetPasswordPage from "@/pages/ResetPasswordPage";
 import Dashboard from "@/pages/Dashboard";
-import CurriculumPage from "@/pages/CurriculumPage";
+import ToolkitPage from "@/pages/ToolkitPage";
 import BehaviorLogPage from "@/pages/BehaviorLogPage";
-import LibraryPage from "@/pages/LibraryPage";
-import ProfilePage from "@/pages/ProfilePage";
 import ProgressPage from "@/pages/ProgressPage";
+import ProfilePage from "@/pages/ProfilePage";
 import AuditDashboardPage from "@/pages/AuditDashboardPage";
 import InviteAcceptPage from "@/pages/InviteAcceptPage";
 import NotFound from "./pages/NotFound";
@@ -68,12 +67,14 @@ function AppContent() {
     <AppLayout>
       <Routes>
         <Route path="/" element={<Dashboard />} />
-        <Route path="/learn" element={<CurriculumPage />} />
+        <Route path="/toolkit" element={<ToolkitPage />} />
         <Route path="/log" element={<BehaviorLogPage />} />
-        <Route path="/library" element={<LibraryPage />} />
-        <Route path="/profile" element={<ProfilePage />} />
         <Route path="/progress" element={<ProgressPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
         <Route path="/audit" element={<AuditDashboardPage />} />
+        {/* Legacy redirects */}
+        <Route path="/learn" element={<Navigate to="/toolkit" replace />} />
+        <Route path="/library" element={<Navigate to="/toolkit" replace />} />
         <Route path="/login" element={<Navigate to="/" replace />} />
         <Route path="*" element={<NotFound />} />
       </Routes>

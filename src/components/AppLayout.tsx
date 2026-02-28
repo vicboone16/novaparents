@@ -1,13 +1,13 @@
-import { NavLink, useLocation } from 'react-router-dom';
-import { Home, BookOpen, PenLine, Library, User } from 'lucide-react';
+import { NavLink } from 'react-router-dom';
+import { Home, Wrench, PenLine, BarChart3, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useEngagement } from '@/hooks/useEngagement';
 
 const navItems = [
   { to: '/', label: 'Home', icon: Home },
-  { to: '/learn', label: 'Learn', icon: BookOpen },
+  { to: '/toolkit', label: 'Toolkit', icon: Wrench },
   { to: '/log', label: 'Log', icon: PenLine },
-  { to: '/library', label: 'Library', icon: Library },
+  { to: '/progress', label: 'Progress', icon: BarChart3 },
   { to: '/profile', label: 'Profile', icon: User },
 ];
 
@@ -45,9 +45,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               className={({ isActive }) =>
                 cn(
                   'flex flex-1 flex-col items-center gap-0.5 py-2 pt-2.5 text-[10px] font-semibold transition-colors',
-                  isActive
-                    ? 'text-primary'
-                    : 'text-muted-foreground'
+                  isActive ? 'text-primary' : 'text-muted-foreground'
                 )
               }
             >
