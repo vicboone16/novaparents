@@ -471,11 +471,11 @@ export const LAB_GAMES: LabGameConfig[] = [
     ],
   },
   {
-    id: 'pattern_cards', title: 'Pattern Cards', stage: 2, difficulty: 'easy', difficulty_dots: 1,
+    id: 'pattern_cards_spaced_rep', title: 'Pattern Cards (Spaced Repetition)', stage: 2, difficulty: 'easy', difficulty_dots: 1,
     skill_tags: ['retention'], est_seconds: 90,
-    goal: 'Improve retention using spaced repetition.',
-    micro_tip: 'Reviewing is a skill, not a setback.',
-    screens: { intro: { headline: 'Pattern Cards', body: 'Quick retention reps. Calm, simple, effective.', cta: 'Start' }, results: { buttons: ['Try again', 'Next drill', 'Back to Lab'] } },
+    goal: 'Strengthen memory of core patterns using spaced repetition.',
+    micro_tip: 'Review is not failure - review is how fluency gets built.',
+    screens: { intro: { headline: 'Pattern Cards', body: 'Quick reps that make the concepts stick.', cta: 'Start' }, results: { buttons: ['Try again', 'Next drill', 'Back to Lab'] } },
     questions: [
       { scenario: 'What are the 4 functions of behavior?', options: ['Attention, Escape, Access, Sensory', 'Happy, Sad, Angry, Scared'], answer: 'Attention, Escape, Access, Sensory', explain: 'The four functions explain WHY behavior happens.' },
       { scenario: 'What does ABC stand for?', options: ['Antecedent, Behavior, Consequence', 'Always Be Calm'], answer: 'Antecedent, Behavior, Consequence', explain: 'A = what happened before. B = observable behavior. C = what happened after.' },
@@ -487,6 +487,8 @@ export const LAB_GAMES: LabGameConfig[] = [
       { scenario: 'When should you use a visual timer?', options: ['During transitions and waiting periods', 'Only during punishment'], answer: 'During transitions and waiting periods', explain: 'Visual timers make time concrete and predictable.' },
       { scenario: 'What is intermittent reinforcement?', options: ['Reinforcing sometimes but not always', 'Reinforcing every single time'], answer: 'Reinforcing sometimes but not always', explain: 'Intermittent reinforcement makes behavior VERY resistant to change.' },
       { scenario: 'Best first step when behavior escalates?', options: ['Reduce demands and stay calm', 'Add more consequences immediately'], answer: 'Reduce demands and stay calm', explain: 'In crisis: fewer words, lower demands, calm presence.' },
+      { scenario: 'What is generalization?', options: ['Using a skill across new settings, people, or times', 'Learning a skill for the first time'], answer: 'Using a skill across new settings, people, or times', explain: 'Skills need active practice in new contexts to transfer.' },
+      { scenario: 'What does "thin reinforcement" mean?', options: ['Gradually reduce how often you reinforce', 'Stop reinforcing completely'], answer: 'Gradually reduce how often you reinforce', explain: 'Thinning builds independence while protecting the skill.' },
     ],
   },
   {
@@ -524,11 +526,11 @@ export const LAB_GAMES: LabGameConfig[] = [
     ],
   },
   {
-    id: 'maintenance_check', title: 'Maintenance Check', stage: 3, difficulty: 'hard', difficulty_dots: 4,
-    skill_tags: ['planning'], est_seconds: 120,
-    goal: 'Ensure skills are maintained over time.',
-    micro_tip: 'Maintenance means the skill still works when supports are faded.',
-    screens: { intro: { headline: 'Maintenance Check', body: 'Practice keeping progress going after initial success.', cta: 'Start' }, results: { buttons: ['Try again', 'Next drill', 'Back to Lab'] } },
+    id: 'maintenance_check', title: 'Maintenance Check', stage: 2, difficulty: 'med', difficulty_dots: 3,
+    skill_tags: ['maintenance'], est_seconds: 120,
+    goal: 'Choose maintenance strategies after improvement so gains do not fade.',
+    micro_tip: 'Maintenance is not "doing nothing" - it is smart fading while protecting success.',
+    screens: { intro: { headline: 'Maintenance Check', body: 'Keep the progress - without burning everyone out.', cta: 'Start' }, results: { buttons: ['Try again', 'Next drill', 'Back to Lab'] } },
     questions: [
       { scenario: 'Child has used break card for 3 weeks. Team wants to stop prompting. Best approach?', options: ['Fade prompts gradually: delay by 3 sec, then 5, then remove', 'Stop prompting all at once', 'Keep prompting forever', 'Remove the break card entirely'], answer: 'Fade prompts gradually: delay by 3 sec, then 5, then remove', explain: 'Gradual fading maintains the skill while building independence.' },
       { scenario: 'Behavior improved for 2 weeks. Team wants to stop the plan. What should they do?', options: ['Continue plan but thin reinforcement gradually', 'Stop the plan completely', 'Keep everything the same forever', 'Add more consequences'], answer: 'Continue plan but thin reinforcement gradually', explain: 'Thin the schedule (reinforce less often) rather than stopping abruptly.' },
