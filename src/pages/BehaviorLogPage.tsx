@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { PenLine, Plus, Clock, MapPin, AlertTriangle } from 'lucide-react';
+import { getCurrentUser } from '@/lib/dal';
+import { logBehaviorLogCreated } from '@/lib/engagement';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -43,6 +45,11 @@ export default function BehaviorLogPage() {
   const [form, setForm] = useState({
     behavior: '', antecedent: '', consequence: '', intensity: '', setting: '', notes: '',
   });
+  const [userId, setUserId] = useState<string>('');
+
+  useEffect(() => {
+    getCurrentUser().then(u => { if (u) setUserId(u.id); });
+  }, []);
 
   useEffect(() => { saveEntries(entries); }, [entries]);
 
@@ -61,6 +68,7 @@ export default function BehaviorLogPage() {
       notes: form.notes,
     };
     setEntries([entry, ...entries]);
+    if (userId) logBehaviorLogCreated(userId, entry.id);
     setForm({ behavior: '', antecedent: '', consequence: '', intensity: '', setting: '', notes: '' });
     setShowForm(false);
   }
