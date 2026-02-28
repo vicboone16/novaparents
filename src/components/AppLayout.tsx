@@ -1,6 +1,7 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { Home, BookOpen, PenLine, Library, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useEngagement } from '@/hooks/useEngagement';
 
 const navItems = [
   { to: '/', label: 'Home', icon: Home },
@@ -11,6 +12,7 @@ const navItems = [
 ];
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
+  useEngagement();
   return (
     <div className="min-h-screen bg-background pb-20">
       {/* Top Bar */}

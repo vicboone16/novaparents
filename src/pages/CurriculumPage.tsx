@@ -1,6 +1,20 @@
-import { useState, useEffect } from 'react';
-import { BookOpen, CheckCircle2, Lock, ArrowLeft, ArrowRight, Sparkles } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { BookOpen, CheckCircle2, Lock, ArrowLeft, ArrowRight, Sparkles, Clock, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { getCurrentUser } from '@/lib/dal';
+import {
+  logModuleOpen,
+  logLessonOpen,
+  logLessonComplete as logLessonCompleteEvent,
+  logReflectionSubmitted,
+  recordLessonOpen,
+  recordInteraction,
+  canCompleteLesson,
+  recordLessonComplete,
+  evaluateLessonCompletion,
+  getSessionId,
+} from '@/lib/engagement';
 
 interface Lesson {
   title: string;
@@ -57,8 +71,35 @@ function saveProgress(p: Record<string, boolean>) {
 export default function CurriculumPage() {
   const [progress, setProgress] = useState(loadProgress);
   const [viewing, setViewing] = useState<{ moduleId: number; lessonIdx: number } | null>(null);
+  const [userId, setUserId] = useState<string>('');
+  const [reflectionText, setReflectionText] = useState('');
+  const [reflectionSubmitted, setReflectionSubmitted] = useState(false);
+  const [completionCheck, setCompletionCheck] = useState<{ allowed: boolean; reason?: string; remainingSec?: number } | null>(null);
+  const [countdown, setCountdown] = useState(0);
+
+  useEffect(() => {
+    getCurrentUser().then(u => { if (u) setUserId(u.id); });
+  }, []);
 
   useEffect(() => { saveProgress(progress); }, [progress]);
+
+  // Track lesson open + reset state when viewing changes
+  useEffect(() => {
+    if (viewing && userId) {
+      recordLessonOpen(viewing.moduleId, viewing.lessonIdx);
+      logLessonOpen(userId, viewing.moduleId, viewing.lessonIdx);
+      setReflectionText('');
+      setReflectionSubmitted(false);
+      setCompletionCheck(null);
+    }
+  }, [viewing?.moduleId, viewing?.lessonIdx, userId]);
+
+  // Countdown timer for minimum time
+  useEffect(() => {
+    if (countdown <= 0) return;
+    const t = setInterval(() => setCountdown(c => Math.max(0, c - 1)), 1000);
+    return () => clearInterval(t);
+  }, [countdown]);
 
   function completedCount(mod: Module) {
     return mod.lessons.filter((_, i) => progress[`${mod.id}-${i}`]).length;
@@ -71,8 +112,34 @@ export default function CurriculumPage() {
     return completedCount(prev) === prev.lessons.length;
   }
 
-  function markComplete(moduleId: number, lessonIdx: number) {
-    setProgress(p => ({ ...p, [`${moduleId}-${lessonIdx}`]: true }));
+  function handleModuleOpen(mod: Module) {
+    if (userId) logModuleOpen(userId, mod.id);
+    setViewing({ moduleId: mod.id, lessonIdx: 0 });
+  }
+
+  function handleReflectionSubmit() {
+    if (!viewing || !userId || !reflectionText.trim()) return;
+    recordInteraction(viewing.moduleId, viewing.lessonIdx);
+    logReflectionSubmitted(userId, viewing.moduleId, viewing.lessonIdx);
+    setReflectionSubmitted(true);
+  }
+
+  function handleMarkComplete() {
+    if (!viewing || !userId) return;
+    const check = canCompleteLesson(viewing.moduleId, viewing.lessonIdx);
+    setCompletionCheck(check);
+
+    if (!check.allowed) {
+      if (check.remainingSec) setCountdown(check.remainingSec);
+      return;
+    }
+
+    // Complete!
+    recordLessonComplete(viewing.moduleId, viewing.lessonIdx);
+    logLessonCompleteEvent(userId, viewing.moduleId, viewing.lessonIdx);
+    evaluateLessonCompletion(userId, getSessionId() || '', viewing.moduleId, viewing.lessonIdx);
+    setProgress(p => ({ ...p, [`${viewing.moduleId}-${viewing.lessonIdx}`]: true }));
+    setCompletionCheck(null);
   }
 
   const totalCompleted = modules.reduce((sum, m) => sum + completedCount(m), 0);
@@ -101,12 +168,55 @@ export default function CurriculumPage() {
           <h4 className="font-display font-bold text-primary text-sm mb-1">✏️ Action Step</h4>
           <p className="text-sm text-foreground">{lesson.actionStep}</p>
         </div>
+
+        {/* Reflection — micro-interaction required for completion */}
         {lesson.reflection && (
-          <div className="rounded-xl border border-accent/20 bg-accent/5 p-5">
-            <h4 className="font-display font-bold text-accent text-sm mb-1">💭 Reflection</h4>
+          <div className="rounded-xl border border-accent/20 bg-accent/5 p-5 space-y-3">
+            <h4 className="font-display font-bold text-accent text-sm mb-1 flex items-center gap-1.5">
+              <MessageSquare className="h-4 w-4" /> Reflection
+            </h4>
             <p className="text-sm text-foreground">{lesson.reflection}</p>
+            {!reflectionSubmitted ? (
+              <>
+                <Textarea
+                  placeholder="Type your reflection here…"
+                  rows={3}
+                  value={reflectionText}
+                  onChange={(e) => setReflectionText(e.target.value)}
+                  className="mt-2"
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleReflectionSubmit}
+                  disabled={!reflectionText.trim()}
+                >
+                  Submit Reflection
+                </Button>
+              </>
+            ) : (
+              <div className="flex items-center gap-2 text-sm text-success font-semibold">
+                <CheckCircle2 className="h-4 w-4" /> Reflection submitted
+              </div>
+            )}
           </div>
         )}
+
+        {/* Completion check feedback */}
+        {completionCheck && !completionCheck.allowed && (
+          <div className="rounded-xl border border-warning/20 bg-warning/5 p-4 text-sm text-foreground flex items-start gap-2">
+            <Clock className="h-4 w-4 text-warning shrink-0 mt-0.5" />
+            <div>
+              <p>{completionCheck.reason}</p>
+              {countdown > 0 && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Time remaining: {countdown}s
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center justify-between pt-2">
           {viewing.lessonIdx > 0 && (
             <Button variant="outline" size="sm" onClick={() => setViewing({ ...viewing, lessonIdx: viewing.lessonIdx - 1 })}>
@@ -115,7 +225,7 @@ export default function CurriculumPage() {
           )}
           <div className="flex-1" />
           {!done ? (
-            <Button size="sm" onClick={() => markComplete(mod.id, viewing.lessonIdx)}>
+            <Button size="sm" onClick={handleMarkComplete}>
               <CheckCircle2 className="h-4 w-4 mr-1" /> Mark Complete
             </Button>
           ) : viewing.lessonIdx < mod.lessons.length - 1 ? (
@@ -161,7 +271,7 @@ export default function CurriculumPage() {
             <button
               key={mod.id}
               disabled={!unlocked}
-              onClick={() => unlocked && setViewing({ moduleId: mod.id, lessonIdx: 0 })}
+              onClick={() => unlocked && handleModuleOpen(mod)}
               className={`w-full text-left flex items-start gap-4 rounded-xl border border-border bg-card p-4 shadow-card transition-all hover:shadow-soft disabled:cursor-not-allowed ${!unlocked ? 'opacity-50' : allDone ? 'border-success/20' : ''}`}
             >
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted">
