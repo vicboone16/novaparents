@@ -14,7 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      app_handshake: {
+        Row: {
+          app_slug: string
+          environment_name: string
+          id: number
+          updated_at: string | null
+        }
+        Insert: {
+          app_slug: string
+          environment_name: string
+          id?: number
+          updated_at?: string | null
+        }
+        Update: {
+          app_slug?: string
+          environment_name?: string
+          id?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

@@ -18,6 +18,7 @@ import BehaviorLogPage from "@/pages/BehaviorLogPage";
 import LibraryPage from "@/pages/LibraryPage";
 import ProfilePage from "@/pages/ProfilePage";
 import ProgressPage from "@/pages/ProgressPage";
+import InviteAcceptPage from "@/pages/InviteAcceptPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -56,6 +57,7 @@ function AppContent() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/invite" element={<InviteAcceptPage />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     );
