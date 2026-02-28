@@ -19,6 +19,10 @@ import ProgressPage from "@/pages/ProgressPage";
 import ProfilePage from "@/pages/ProfilePage";
 import AuditDashboardPage from "@/pages/AuditDashboardPage";
 import InviteAcceptPage from "@/pages/InviteAcceptPage";
+import NovaAcademyPage from "@/pages/NovaAcademyPage";
+import BehaviorLabPage from "@/pages/BehaviorLabPage";
+import AcademyAdminPage from "@/pages/AcademyAdminPage";
+import BehaviorLabAdminPage from "@/pages/BehaviorLabAdminPage";
 import NotFound from "./pages/NotFound";
 import { CoachBotFAB } from "./components/CoachBot";
 
@@ -71,9 +75,13 @@ function AppContent() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/toolkit" element={<ToolkitPage />} />
           <Route path="/log" element={<BehaviorLogPage />} />
+          <Route path="/academy" element={<NovaAcademyPage />} />
+          <Route path="/behavior-lab" element={<BehaviorLabPage />} />
           <Route path="/progress" element={<ProgressPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/audit" element={<AuditDashboardPage />} />
+          <Route path="/admin/academy" element={<AcademyAdminPage />} />
+          <Route path="/admin/behavior-lab" element={<BehaviorLabAdminPage />} />
           {/* Legacy redirects */}
           <Route path="/learn" element={<Navigate to="/toolkit" replace />} />
           <Route path="/library" element={<Navigate to="/toolkit" replace />} />
