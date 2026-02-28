@@ -4,6 +4,7 @@ import { User, Bell, Wrench, LogOut, CheckCircle2, XCircle, Copy } from 'lucide-
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { useNavigate } from 'react-router-dom';
+import { useNotifications } from '@/hooks/useNotifications';
 
 export default function ProfilePage() {
   const [user, setUser] = useState<any>(null);
@@ -15,6 +16,9 @@ export default function ProfilePage() {
   const [showDiag, setShowDiag] = useState(false);
   const [copied, setCopied] = useState(false);
   const navigate = useNavigate();
+
+  // Activate push notification reminders
+  const { requestPermission } = useNotifications(notifications);
 
   useEffect(() => {
     getCurrentUser().then(setUser);
@@ -33,7 +37,10 @@ export default function ProfilePage() {
     ping();
   }, []);
 
-  function toggleNotifications(val: boolean) {
+  async function toggleNotifications(val: boolean) {
+    if (val) {
+      await requestPermission();
+    }
     setNotifications(val);
     localStorage.setItem('bd_notifications', String(val));
   }
@@ -43,7 +50,6 @@ export default function ProfilePage() {
     navigate('/login');
   }
 
-  // Simulated invite code (would come from backend in production)
   const inviteCode = user?.id ? user.id.slice(0, 8).toUpperCase() : '...';
 
   function copyInvite() {
@@ -96,15 +102,17 @@ export default function ProfilePage() {
       </div>
 
       {/* Notifications */}
-      <div className="rounded-xl border border-border bg-card p-4 shadow-card flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Bell className="h-5 w-5 text-muted-foreground" />
-          <div>
-            <p className="font-display font-bold text-foreground text-sm">Notifications</p>
-            <p className="text-xs text-muted-foreground">Reminders & tips</p>
+      <div className="rounded-xl border border-border bg-card p-4 shadow-card space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Bell className="h-5 w-5 text-muted-foreground" />
+            <div>
+              <p className="font-display font-bold text-foreground text-sm">Daily Reminders</p>
+              <p className="text-xs text-muted-foreground">Get reminded to log behaviors & complete lessons at 6 PM</p>
+            </div>
           </div>
+          <Switch checked={notifications} onCheckedChange={toggleNotifications} />
         </div>
-        <Switch checked={notifications} onCheckedChange={toggleNotifications} />
       </div>
 
       {/* Diagnostics */}

@@ -38,16 +38,22 @@ export default function Dashboard() {
         const email = user.email || '';
         setUserName(email.split('@')[0] || 'there');
         setUserId(user.id);
-        setPackets(getPackets());
+        // Fetch packets from backend
+        getPackets(user.id).then(setPackets);
       }
     });
   }, []);
 
-  function handleSubmitPacket() {
+  async function handleSubmitPacket() {
     if (!userId) return;
     setSubmitting(true);
-    const packet = submitEvidencePacket(userId);
-    setPackets(getPackets());
+    try {
+      await submitEvidencePacket(userId);
+      const updated = await getPackets(userId);
+      setPackets(updated);
+    } catch (err) {
+      console.error('Packet submission failed:', err);
+    }
     setSubmitting(false);
   }
 
@@ -136,7 +142,7 @@ export default function Dashboard() {
           disabled={submitting}
         >
           <Send className="h-4 w-4" />
-          {latestPacket ? 'Submit New Packet' : 'Submit Evidence Packet'}
+          {submitting ? 'Submitting…' : latestPacket ? 'Submit New Packet' : 'Submit Evidence Packet'}
         </Button>
       </section>
 

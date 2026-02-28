@@ -35,15 +35,135 @@ export type Database = {
         }
         Relationships: []
       }
+      evidence_packets: {
+        Row: {
+          behavior_logs_count: number
+          billing_eligible: boolean
+          created_at: string
+          duration_logs_count: number
+          feedback_message: string | null
+          flags_summary: Json | null
+          followup_items: Json | null
+          frequency_logs_count: number
+          id: string
+          implementation_logs_count: number
+          integrity_score: number
+          lessons_completed: Json | null
+          pages_visited: Json | null
+          quiz_scores: Json | null
+          reflections_submitted: number
+          status: string
+          submitted_at: string | null
+          total_active_time_sec: number
+          user_id: string
+        }
+        Insert: {
+          behavior_logs_count?: number
+          billing_eligible?: boolean
+          created_at?: string
+          duration_logs_count?: number
+          feedback_message?: string | null
+          flags_summary?: Json | null
+          followup_items?: Json | null
+          frequency_logs_count?: number
+          id?: string
+          implementation_logs_count?: number
+          integrity_score?: number
+          lessons_completed?: Json | null
+          pages_visited?: Json | null
+          quiz_scores?: Json | null
+          reflections_submitted?: number
+          status?: string
+          submitted_at?: string | null
+          total_active_time_sec?: number
+          user_id: string
+        }
+        Update: {
+          behavior_logs_count?: number
+          billing_eligible?: boolean
+          created_at?: string
+          duration_logs_count?: number
+          feedback_message?: string | null
+          flags_summary?: Json | null
+          followup_items?: Json | null
+          frequency_logs_count?: number
+          id?: string
+          implementation_logs_count?: number
+          integrity_score?: number
+          lessons_completed?: Json | null
+          pages_visited?: Json | null
+          quiz_scores?: Json | null
+          reflections_submitted?: number
+          status?: string
+          submitted_at?: string | null
+          total_active_time_sec?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      notification_preferences: {
+        Row: {
+          created_at: string
+          daily_reminder: boolean
+          id: string
+          reminder_hour: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          daily_reminder?: boolean
+          id?: string
+          reminder_hour?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          daily_reminder?: boolean
+          id?: string
+          reminder_hour?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "agency_admin" | "coach"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -170,6 +290,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["agency_admin", "coach"],
+    },
   },
 } as const

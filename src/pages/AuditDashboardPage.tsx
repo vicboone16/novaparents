@@ -1,14 +1,15 @@
 /**
  * Agency Audit Dashboard
  * ──────────────────────
- * Hidden from coaches. Shows per-Learner engagement scores,
- * time spent, integrity flags, and progress summaries.
- * Accessible via /audit (not shown in bottom nav).
+ * Protected by server-side RBAC — only agency_admin users can access.
+ * Shows per-Learner engagement scores, time spent, integrity flags, and progress.
  */
 
 import { useEffect, useState } from 'react';
-import { Shield, Clock, AlertTriangle, BarChart3, CheckCircle2, ChevronDown, ChevronUp, Eye } from 'lucide-react';
+import { Shield, Clock, AlertTriangle, BarChart3, CheckCircle2, ChevronDown, ChevronUp, Eye, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useUserRole } from '@/hooks/useUserRole';
+import { getPacketsByStatus, getPackets, type EvidencePacket } from '@/lib/evidence';
 import {
   getAllEvents,
   getAllFlags,
@@ -27,32 +28,67 @@ interface CoachSummary {
   flags: IntegrityFlag[];
   timings: Record<string, LessonTimingRecord>;
   score: CoachScore;
+  packets: EvidencePacket[];
 }
 
-const TOTAL_LESSONS = 11; // total lessons across all modules
+const TOTAL_LESSONS = 11;
 
 export default function AuditDashboardPage() {
+  const { role, loading: roleLoading, isAgencyAdmin } = useUserRole();
   const [coaches, setCoaches] = useState<CoachSummary[]>([]);
   const [expandedCoach, setExpandedCoach] = useState<string | null>(null);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
+  const [pendingPackets, setPendingPackets] = useState<EvidencePacket[]>([]);
   const rubric = getRubric();
 
   useEffect(() => {
-    const allEvents = getAllEvents();
-    const allFlags = getAllFlags();
-    const allTimings = getAllTimings();
+    if (!isAgencyAdmin) return;
 
-    // Group by userId
-    const userIds = [...new Set(allEvents.map(e => e.userId))];
-    const summaries = userIds.map(userId => {
-      const events = allEvents.filter(e => e.userId === userId);
-      const flags = allFlags.filter(f => f.userId === userId);
-      const score = computeCoachScore(userId, TOTAL_LESSONS);
-      return { userId, events, flags, timings: allTimings, score };
-    });
+    async function load() {
+      const allEvents = getAllEvents();
+      const allFlags = getAllFlags();
+      const allTimings = getAllTimings();
 
-    setCoaches(summaries);
-  }, []);
+      const userIds = [...new Set(allEvents.map(e => e.userId))];
+      const summaries: CoachSummary[] = [];
+      
+      for (const userId of userIds) {
+        const events = allEvents.filter(e => e.userId === userId);
+        const flags = allFlags.filter(f => f.userId === userId);
+        const score = computeCoachScore(userId, TOTAL_LESSONS);
+        const packets = await getPackets(userId);
+        summaries.push({ userId, events, flags, timings: allTimings, score, packets });
+      }
+
+      setCoaches(summaries);
+      
+      const pending = await getPacketsByStatus('pending_review');
+      setPendingPackets(pending);
+    }
+    load();
+  }, [isAgencyAdmin]);
+
+  if (roleLoading) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="animate-pulse text-muted-foreground font-display">Verifying access…</div>
+      </div>
+    );
+  }
+
+  if (!isAgencyAdmin) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="text-center max-w-sm">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-destructive/10">
+            <Lock className="h-7 w-7 text-destructive" />
+          </div>
+          <h2 className="font-display text-xl font-bold text-foreground mb-2">Access Restricted</h2>
+          <p className="text-sm text-muted-foreground">This page is only available to agency administrators.</p>
+        </div>
+      </div>
+    );
+  }
 
   function formatDuration(sec: number): string {
     if (sec < 60) return `${sec}s`;
@@ -87,6 +123,17 @@ export default function AuditDashboardPage() {
           Caregiver Training engagement audit — per-Learner scoring, integrity flags, and progress.
         </p>
       </div>
+
+      {/* Pending Packets Alert */}
+      {pendingPackets.length > 0 && (
+        <div className="rounded-xl border border-warning/30 bg-warning/5 p-4 flex items-center gap-3">
+          <AlertTriangle className="h-5 w-5 text-warning shrink-0" />
+          <div>
+            <p className="font-display font-bold text-foreground text-sm">{pendingPackets.length} Evidence Packet(s) Pending Review</p>
+            <p className="text-xs text-muted-foreground">These packets need BCBA/admin review before billing eligibility is confirmed.</p>
+          </div>
+        </div>
+      )}
 
       {/* Summary Stats */}
       <div className="grid gap-3 sm:grid-cols-4">
@@ -157,8 +204,6 @@ export default function AuditDashboardPage() {
             const pageViews = coach.events.filter(e => e.eventType === 'page_view');
             const sessions = coach.events.filter(e => e.eventType === 'session_start');
             const highFlags = coach.flags.filter(f => f.severity === 'high').length;
-            const medFlags = coach.flags.filter(f => f.severity === 'med').length;
-            const lowFlags = coach.flags.filter(f => f.severity === 'low').length;
 
             return (
               <div key={coach.userId} className="rounded-xl border border-border bg-card shadow-card overflow-hidden">
@@ -199,16 +244,33 @@ export default function AuditDashboardPage() {
                           <div key={i} className="flex items-center gap-3">
                             <span className="text-xs text-foreground w-32 shrink-0">{b.category}</span>
                             <div className="flex-1 h-2 rounded-full bg-border overflow-hidden">
-                              <div
-                                className="h-full rounded-full gradient-hero transition-all"
-                                style={{ width: `${b.score}%` }}
-                              />
+                              <div className="h-full rounded-full gradient-hero transition-all" style={{ width: `${b.score}%` }} />
                             </div>
                             <span className="text-xs font-semibold text-foreground w-12 text-right">{b.score}/100</span>
                           </div>
                         ))}
                       </div>
                     </div>
+
+                    {/* Evidence Packets */}
+                    {coach.packets.length > 0 && (
+                      <div>
+                        <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Evidence Packets</h5>
+                        <div className="space-y-1.5">
+                          {coach.packets.slice(0, 5).map(p => (
+                            <div key={p.id} className="flex items-center justify-between rounded-lg bg-muted/30 px-3 py-2 text-xs">
+                              <span className="text-muted-foreground">{new Date(p.createdAt).toLocaleDateString()}</span>
+                              <span className={`rounded-full px-2 py-0.5 font-bold ${
+                                p.status === 'approved' ? 'bg-success/10 text-success' :
+                                p.status === 'pending_review' ? 'bg-warning/10 text-warning' :
+                                p.status === 'needs_followup' ? 'bg-secondary/10 text-secondary' :
+                                'bg-muted text-muted-foreground'
+                              }`}>{p.status.replace('_', ' ')}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Activity Summary */}
                     <div>
