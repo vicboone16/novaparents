@@ -331,7 +331,7 @@ export const LAB_GAMES: LabGameConfig[] = [
     ],
   },
   {
-    id: 'myth_buster', title: 'Myth Buster', stage: 2, difficulty: 'easy', difficulty_dots: 1,
+    id: 'myth_buster_tf', title: 'Myth Buster (T/F)', stage: 1, difficulty: 'easy', difficulty_dots: 1,
     skill_tags: ['fundamentals'], est_seconds: 90,
     goal: 'Correct common misconceptions.',
     micro_tip: 'Clarity reduces guilt. Guilt reduces follow-through.',
@@ -352,7 +352,7 @@ export const LAB_GAMES: LabGameConfig[] = [
     ],
   },
   {
-    id: 'calm_or_escalate', title: 'Calm or Escalate?', stage: 2, difficulty: 'med', difficulty_dots: 3,
+    id: 'calm_or_escalate', title: 'Calm or Escalate?', stage: 1, difficulty: 'med', difficulty_dots: 3,
     skill_tags: ['de_escalation'], est_seconds: 120,
     goal: 'Choose the best immediate response to reduce escalation.',
     micro_tip: 'In escalation: fewer words + more structure.',
@@ -371,7 +371,7 @@ export const LAB_GAMES: LabGameConfig[] = [
     ],
   },
   {
-    id: 'ten_second_reset', title: '10-Second Reset', stage: 2, difficulty: 'easy', difficulty_dots: 1,
+    id: 'ten_second_reset', title: '10-Second Reset', stage: 1, difficulty: 'easy', difficulty_dots: 1,
     skill_tags: ['coach_regulation'], est_seconds: 60,
     goal: 'Practice a quick regulation reset as a coach.',
     micro_tip: 'Your nervous system sets the temperature of the room.',
@@ -381,7 +381,7 @@ export const LAB_GAMES: LabGameConfig[] = [
     ],
   },
   {
-    id: 'trigger_spotter', title: 'Trigger Spotter', stage: 2, difficulty: 'easy-med', difficulty_dots: 2,
+    id: 'trigger_spotter', title: 'Trigger Spotter', stage: 1, difficulty: 'easy-med', difficulty_dots: 2,
     skill_tags: ['antecedents'], est_seconds: 90,
     goal: 'Identify the trigger/antecedent in a story.',
     micro_tip: 'Triggers are often small: transitions, denied access, attention shifts, or hard tasks.',
@@ -400,7 +400,7 @@ export const LAB_GAMES: LabGameConfig[] = [
     ],
   },
   {
-    id: 'consequence_spotter', title: 'Consequence Spotter', stage: 2, difficulty: 'easy-med', difficulty_dots: 2,
+    id: 'consequence_spotter', title: 'Consequence Spotter', stage: 1, difficulty: 'easy-med', difficulty_dots: 2,
     skill_tags: ['consequences'], est_seconds: 90,
     goal: 'Identify what changed after the behavior.',
     micro_tip: 'Consequence = what changed right after (including what ended).',
@@ -419,7 +419,7 @@ export const LAB_GAMES: LabGameConfig[] = [
     ],
   },
   {
-    id: 'what_would_nova_say', title: 'What Would Nova Say?', stage: 2, difficulty: 'easy-med', difficulty_dots: 2,
+    id: 'what_would_nova_say', title: 'What Would Nova Say?', stage: 1, difficulty: 'easy-med', difficulty_dots: 2,
     skill_tags: ['tone', 'coaching'], est_seconds: 90,
     goal: 'Pick the most supportive, effective coaching response.',
     micro_tip: 'Support + structure = follow-through.',
@@ -440,10 +440,10 @@ export const LAB_GAMES: LabGameConfig[] = [
 
   // STAGE 3 - ADVANCED
   {
-    id: 'micro_scenario_drills', title: 'Micro Scenario Drills (30s)', stage: 3, difficulty: 'hard', difficulty_dots: 4,
+    id: 'micro_scenario_drills_30s', title: 'Micro Scenario Drills (30s)', stage: 3, difficulty: 'hard', difficulty_dots: 4,
     skill_tags: ['mixed'], est_seconds: 60,
     goal: 'Build fast fluency under time pressure.',
-    micro_tip: 'Fast does not mean perfect - fast means practiced.',
+    micro_tip: 'Speed comes after clarity. You are building fluency, not perfection.',
     screens: { intro: { headline: 'Micro Scenario Drills', body: '30 seconds. Quick decisions. Calm learning.', cta: 'Start' }, results: { buttons: ['Try again', 'Next drill', 'Back to Lab'] } },
     questions: [
       { scenario: 'Child screams when iPad is taken. Function?', options: ['Access', 'Escape/Avoid', 'Attention', 'Sensory/Body need'], answer: 'Access', explain: 'Behavior followed removal of preferred item.' },
@@ -452,10 +452,14 @@ export const LAB_GAMES: LabGameConfig[] = [
       { scenario: 'Child hums and flaps hands alone. Function?', options: ['Sensory/Body need', 'Attention', 'Access', 'Escape/Avoid'], answer: 'Sensory/Body need', explain: 'Happens without social consequence.' },
       { scenario: 'Teen refuses to clean room, goes to play video games. Function?', options: ['Escape/Avoid', 'Access', 'Attention', 'Sensory/Body need'], answer: 'Escape/Avoid', explain: 'The refusal removes the cleaning demand.' },
       { scenario: 'Child brings parent book after book. Function?', options: ['Attention', 'Access', 'Escape/Avoid', 'Sensory/Body need'], answer: 'Attention', explain: 'Each book produces shared reading time.' },
+      { scenario: 'Learner throws materials off desk during writing. Function?', options: ['Escape/Avoid', 'Access', 'Attention', 'Sensory/Body need'], answer: 'Escape/Avoid', explain: 'Throwing disrupts the writing demand.' },
+      { scenario: 'Child fake-cries and checks if parent is watching. Function?', options: ['Attention', 'Escape/Avoid', 'Access', 'Sensory/Body need'], answer: 'Attention', explain: 'Checking for reaction = attention-maintained.' },
+      { scenario: 'Child grabs snack off counter without asking. Function?', options: ['Access', 'Attention', 'Escape/Avoid', 'Sensory/Body need'], answer: 'Access', explain: 'Direct access to a preferred item.' },
+      { scenario: 'Child rocks back and forth during a loud assembly. Function?', options: ['Sensory/Body need', 'Escape/Avoid', 'Attention', 'Access'], answer: 'Sensory/Body need', explain: 'Rocking provides self-regulation input in an overstimulating environment.' },
     ],
   },
   {
-    id: 'streak_challenge', title: 'Streak Challenge', stage: 2, difficulty: 'easy', difficulty_dots: 1,
+    id: 'streak_challenge', title: 'Streak Challenge', stage: 1, difficulty: 'easy', difficulty_dots: 1,
     skill_tags: ['habit'], est_seconds: 60,
     goal: 'Build a daily habit with 3 quick items.',
     micro_tip: 'Consistency beats intensity.',
