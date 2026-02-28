@@ -6,7 +6,8 @@
  */
 
 import { useState, useEffect } from 'react';
-import { BookOpen, Route, UserCheck, Shield, Plus, Pencil, Copy, Archive, Eye, Search, ChevronRight, ArrowLeft } from 'lucide-react';
+import { BookOpen, Route, UserCheck, Shield, Plus, Pencil, Copy, Archive, Eye, Search, ChevronRight, ArrowLeft, Wrench } from 'lucide-react';
+import { AdminPathBuilder } from '@/components/AdminPathBuilder';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -422,9 +423,20 @@ function PathsTab({ userId, isSuperAdmin }: { userId: string; isSuperAdmin: bool
   const [paths, setPaths] = useState<AcademyPath[]>([]);
   const [showCreate, setShowCreate] = useState(false);
   const [editingPath, setEditingPath] = useState<AcademyPath | null>(null);
+  const [buildingPath, setBuildingPath] = useState<AcademyPath | null>(null);
 
   useEffect(() => { loadPaths(); }, []);
   async function loadPaths() { setPaths(await getPaths()); }
+
+  if (buildingPath) {
+    return (
+      <AdminPathBuilder
+        pathId={buildingPath.id}
+        pathTitle={buildingPath.title}
+        onClose={() => setBuildingPath(null)}
+      />
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -452,6 +464,9 @@ function PathsTab({ userId, isSuperAdmin }: { userId: string; isSuperAdmin: bool
             <p className="text-[10px] text-muted-foreground">{new Date(p.updated_at).toLocaleDateString()}</p>
           </div>
           <div className="flex gap-1">
+            <Button variant="ghost" size="sm" onClick={() => setBuildingPath(p)} className="text-xs gap-1">
+              <Wrench className="h-3 w-3" /> Build
+            </Button>
             <Button variant="ghost" size="sm" onClick={() => setEditingPath(p)} className="text-xs">Edit</Button>
             <Button variant="ghost" size="sm" onClick={async () => {
               await updatePath(p.id, { status: p.status === 'active' ? 'archived' : 'active' });

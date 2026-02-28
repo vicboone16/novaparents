@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { getCurrentUser } from '@/lib/dal';
 import { getGames, createGame, updateGame, type LabGame } from '@/lib/behavior-lab-dal';
+import { seedBehaviorLabGames } from '@/lib/behavior-lab-seeds';
 
 export default function BehaviorLabAdminPage() {
   const [userId, setUserId] = useState('');
@@ -73,8 +74,15 @@ export default function BehaviorLabAdminPage() {
         </div>
       ) : (
         <>
-          <div className="flex items-center gap-2">
-            <Input placeholder="Search games…" value={search} onChange={e => setSearch(e.target.value)} className="flex-1 text-sm" />
+          <div className="flex items-center gap-2 flex-wrap">
+            <Input placeholder="Search games…" value={search} onChange={e => setSearch(e.target.value)} className="flex-1 min-w-[150px] text-sm" />
+            <Button size="sm" variant="outline" onClick={async () => {
+              const count = await seedBehaviorLabGames();
+              alert(`Seeded ${count} games`);
+              loadGames();
+            }} className="gap-1 text-xs">
+              Seed 12 Games
+            </Button>
             <Button size="sm" onClick={() => setShowCreate(true)} className="gap-1">
               <Plus className="h-3.5 w-3.5" /> Create Game
             </Button>

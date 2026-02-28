@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { getCurrentUser, signOut, checkHandshake, getMaskedBackendUrl, getMyClients, type ClientSummary } from '@/lib/dal';
-import { User, Bell, Wrench, LogOut, CheckCircle2, XCircle, Copy } from 'lucide-react';
+import { User, Bell, Wrench, LogOut, CheckCircle2, XCircle, Copy, Star } from 'lucide-react';
+import { getMyProgress, type ModuleProgress } from '@/lib/academy-dal';
+import { getMyAttempts } from '@/lib/behavior-lab-dal';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { useNavigate } from 'react-router-dom';
@@ -9,6 +11,7 @@ import { useNotifications } from '@/hooks/useNotifications';
 export default function ProfilePage() {
   const [user, setUser] = useState<any>(null);
   const [clients, setClients] = useState<ClientSummary[]>([]);
+  const [totalXp, setTotalXp] = useState(0);
   const [notifications, setNotifications] = useState(() => localStorage.getItem('bd_notifications') !== 'false');
   const [diagnostics, setDiagnostics] = useState<{
     appSlug: string | null; supabaseUrl: string; lastPing: string | null;
@@ -17,11 +20,32 @@ export default function ProfilePage() {
   const [copied, setCopied] = useState(false);
   const navigate = useNavigate();
 
+  const GROWTH_LEVELS = [
+    { level: 1, name: 'Observer', xp: 0, emoji: '👀' },
+    { level: 2, name: 'Behavior Detective', xp: 100, emoji: '🔍' },
+    { level: 3, name: 'Reinforcement Reader', xp: 250, emoji: '📖' },
+    { level: 4, name: 'Pattern Spotter', xp: 500, emoji: '🧩' },
+    { level: 5, name: 'Confident Coach', xp: 1000, emoji: '🌟' },
+  ];
+
+  const currentLevel = [...GROWTH_LEVELS].reverse().find(l => totalXp >= l.xp) || GROWTH_LEVELS[0];
+  const nextLevel = GROWTH_LEVELS.find(l => l.xp > totalXp);
+  const levelProgress = nextLevel ? (totalXp - currentLevel.xp) / (nextLevel.xp - currentLevel.xp) : 1;
+
   // Activate push notification reminders
   const { requestPermission } = useNotifications(notifications);
 
   useEffect(() => {
-    getCurrentUser().then(setUser);
+    getCurrentUser().then(u => {
+      setUser(u);
+      if (u) {
+        Promise.all([getMyProgress(u.id), getMyAttempts(u.id)]).then(([prog, attempts]) => {
+          const academyXp = prog.reduce((s, p) => s + (p.xp_earned || 0), 0);
+          const labXp = attempts.reduce((s, a) => s + (a.xp_earned || 0), 0);
+          setTotalXp(academyXp + labXp);
+        });
+      }
+    });
     getMyClients().then(setClients);
   }, []);
 
@@ -70,6 +94,43 @@ export default function ProfilePage() {
         <div className="flex-1 min-w-0">
           <p className="font-display font-bold text-foreground truncate">{user?.email || 'Loading…'}</p>
           <p className="text-sm text-muted-foreground">Coach Account</p>
+        </div>
+      </div>
+
+      {/* Growth Path */}
+      <div className="rounded-xl border border-border bg-card p-4 shadow-card space-y-3">
+        <div className="flex items-center gap-2">
+          <Star className="h-5 w-5 text-primary" />
+          <h3 className="font-display font-bold text-foreground text-sm">Your Growth Path</h3>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="relative flex h-14 w-14 shrink-0 items-center justify-center">
+            <svg className="absolute inset-0 h-full w-full -rotate-90" viewBox="0 0 36 36">
+              <circle cx="18" cy="18" r="15" fill="none" stroke="hsl(var(--border))" strokeWidth="2" />
+              <circle cx="18" cy="18" r="15" fill="none" stroke="hsl(var(--primary))" strokeWidth="2.5"
+                strokeDasharray={`${Math.min(levelProgress, 1) * 94.2} 94.2`}
+                strokeLinecap="round" />
+            </svg>
+            <span className="text-lg">{currentLevel.emoji}</span>
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-foreground">Level {currentLevel.level}: {currentLevel.name}</p>
+            <p className="text-[10px] text-muted-foreground">{totalXp} XP earned</p>
+            {nextLevel && (
+              <p className="text-[10px] text-muted-foreground">{nextLevel.xp - totalXp} XP to {nextLevel.name}</p>
+            )}
+          </div>
+        </div>
+        <div className="space-y-1">
+          {GROWTH_LEVELS.map(gl => (
+            <div key={gl.level} className={`flex items-center gap-2 text-xs ${totalXp >= gl.xp ? 'text-foreground' : 'text-muted-foreground opacity-60'}`}>
+              <span>{gl.emoji}</span>
+              <span className="font-semibold">L{gl.level}</span>
+              <span>{gl.name}</span>
+              <span className="ml-auto text-[10px]">{gl.xp} XP</span>
+              {totalXp >= gl.xp && <CheckCircle2 className="h-3 w-3 text-success" />}
+            </div>
+          ))}
         </div>
       </div>
 
