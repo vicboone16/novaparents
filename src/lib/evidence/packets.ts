@@ -4,13 +4,10 @@
  * Bundles lesson completions, quiz scores, reflections, implementation logs,
  * and learner data logs into a single Evidence Packet for agency review.
  *
- * Coach submits → status = pending_review
- * BCBA/admin in NovaTrack: approve / needs_followup / reject
- * Coach NEVER sees billing/auth details.
- *
- * Phase 1: localStorage. Phase 2: syncs to NovaTrack.
+ * Phase 2: persists to backend via evidence_packets table.
  */
 
+import { supabase } from '@/integrations/supabase/client';
 import { getAllEvents, getAllTimings, getAllFlags, computeCoachScore } from '@/lib/engagement';
 import type { EngagementEvent, LessonTimingRecord, IntegrityFlag } from '@/lib/engagement';
 
@@ -24,12 +21,8 @@ export interface EvidencePacket {
   createdAt: string;
   submittedAt: string | null;
   status: PacketStatus;
-  /** Agency feedback message (visible to coach only for needs_followup) */
   feedbackMessage: string | null;
-  /** What coach needs to redo (for needs_followup) */
   followupItems: string[];
-
-  // ─── Bundled data ────────────────────────────────────
   lessonsCompleted: string[];
   quizScores: { lessonKey: string; correct: boolean }[];
   reflectionsSubmitted: number;
@@ -44,39 +37,10 @@ export interface EvidencePacket {
   flagsSummary: { high: number; med: number; low: number };
 }
 
-// ─── Storage ─────────────────────────────────────────────
-
-const PACKETS_KEY = 'bd_evidence_packets';
-
-function loadPackets(): EvidencePacket[] {
-  try { return JSON.parse(localStorage.getItem(PACKETS_KEY) || '[]'); }
-  catch { return []; }
-}
-
-function persistPackets(packets: EvidencePacket[]) {
-  localStorage.setItem(PACKETS_KEY, JSON.stringify(packets));
-}
-
-// ─── Public API ──────────────────────────────────────────
-
-export function getPackets(): EvidencePacket[] {
-  return loadPackets();
-}
-
-export function getPacketsByStatus(status: PacketStatus): EvidencePacket[] {
-  return loadPackets().filter(p => p.status === status);
-}
-
-export function getLatestPacket(): EvidencePacket | null {
-  const packets = loadPackets();
-  return packets.length > 0 ? packets[0] : null;
-}
-
 const TOTAL_LESSONS = 11;
 
-/**
- * Build a new Evidence Packet from current engagement data.
- */
+// ─── Build packet from local engagement data ─────────────
+
 export function buildEvidencePacket(userId: string): EvidencePacket {
   const events = getAllEvents().filter(e => e.userId === userId);
   const timings = getAllTimings();
@@ -90,7 +54,6 @@ export function buildEvidencePacket(userId: string): EvidencePacket {
   const behaviorLogs = events.filter(e => e.eventType === 'behavior_log_created').length;
   const implLogs = events.filter(e => e.eventType === 'implementation_log_created').length;
 
-  // Count frequency/duration logs from localStorage
   const freqLogs = (() => { try { return JSON.parse(localStorage.getItem('bd_frequency_log') || '[]').length; } catch { return 0; } })();
   const durLogs = (() => { try { return JSON.parse(localStorage.getItem('bd_duration_log') || '[]').length; } catch { return 0; } })();
 
@@ -124,37 +87,114 @@ export function buildEvidencePacket(userId: string): EvidencePacket {
   };
 }
 
-/**
- * Submit an Evidence Packet for agency review.
- */
-export function submitEvidencePacket(userId: string): EvidencePacket {
+// ─── Submit to backend ───────────────────────────────────
+
+export async function submitEvidencePacket(userId: string): Promise<EvidencePacket> {
   const packet = buildEvidencePacket(userId);
-  packet.status = 'submitted';
+  packet.status = 'pending_review';
   packet.submittedAt = new Date().toISOString();
 
-  // After a brief delay it becomes pending_review (simulating sync to NovaTrack)
-  packet.status = 'pending_review';
+  const { error } = await (supabase as any)
+    .from('evidence_packets')
+    .insert({
+      id: packet.id,
+      user_id: userId,
+      created_at: packet.createdAt,
+      submitted_at: packet.submittedAt,
+      status: packet.status,
+      lessons_completed: packet.lessonsCompleted,
+      quiz_scores: packet.quizScores,
+      reflections_submitted: packet.reflectionsSubmitted,
+      behavior_logs_count: packet.behaviorLogsCount,
+      implementation_logs_count: packet.implementationLogsCount,
+      frequency_logs_count: packet.frequencyLogsCount,
+      duration_logs_count: packet.durationLogsCount,
+      total_active_time_sec: packet.totalActiveTimeSec,
+      pages_visited: packet.pagesVisited,
+      integrity_score: packet.integrityScore,
+      billing_eligible: packet.billingEligible,
+      flags_summary: packet.flagsSummary,
+    });
 
-  const packets = loadPackets();
-  packets.unshift(packet);
-  persistPackets(packets);
+  if (error) {
+    console.error('[Evidence] Failed to persist packet:', error.message);
+    // Fall back to localStorage
+    const local = loadLocalPackets();
+    local.unshift(packet);
+    saveLocalPackets(local);
+  }
+
   return packet;
 }
 
-/**
- * Simulate agency review action (for testing; in production this comes from NovaTrack).
- */
-export function updatePacketStatus(
-  packetId: string,
-  status: 'approved' | 'needs_followup' | 'rejected',
-  feedbackMessage?: string,
-  followupItems?: string[]
-) {
-  const packets = loadPackets();
-  const idx = packets.findIndex(p => p.id === packetId);
-  if (idx === -1) return;
-  packets[idx].status = status;
-  if (feedbackMessage) packets[idx].feedbackMessage = feedbackMessage;
-  if (followupItems) packets[idx].followupItems = followupItems;
-  persistPackets(packets);
+// ─── Fetch from backend ──────────────────────────────────
+
+export async function getPackets(userId?: string): Promise<EvidencePacket[]> {
+  try {
+    let query = (supabase as any).from('evidence_packets').select('*').order('created_at', { ascending: false });
+    if (userId) query = query.eq('user_id', userId);
+    
+    const { data, error } = await query;
+    
+    if (error || !data?.length) {
+      // Fall back to localStorage
+      return loadLocalPackets();
+    }
+
+    return (data as any[]).map(mapDbToPacket);
+  } catch {
+    return loadLocalPackets();
+  }
+}
+
+export async function getPacketsByStatus(status: PacketStatus): Promise<EvidencePacket[]> {
+  try {
+    const { data, error } = await (supabase as any)
+      .from('evidence_packets')
+      .select('*')
+      .eq('status', status)
+      .order('created_at', { ascending: false });
+
+    if (error || !data) return [];
+    return (data as any[]).map(mapDbToPacket);
+  } catch {
+    return [];
+  }
+}
+
+// ─── Helpers ─────────────────────────────────────────────
+
+function mapDbToPacket(row: any): EvidencePacket {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    createdAt: row.created_at,
+    submittedAt: row.submitted_at,
+    status: row.status as PacketStatus,
+    feedbackMessage: row.feedback_message,
+    followupItems: row.followup_items || [],
+    lessonsCompleted: row.lessons_completed || [],
+    quizScores: row.quiz_scores || [],
+    reflectionsSubmitted: row.reflections_submitted || 0,
+    behaviorLogsCount: row.behavior_logs_count || 0,
+    implementationLogsCount: row.implementation_logs_count || 0,
+    frequencyLogsCount: row.frequency_logs_count || 0,
+    durationLogsCount: row.duration_logs_count || 0,
+    totalActiveTimeSec: row.total_active_time_sec || 0,
+    pagesVisited: row.pages_visited || [],
+    integrityScore: row.integrity_score || 0,
+    billingEligible: row.billing_eligible || false,
+    flagsSummary: row.flags_summary || { high: 0, med: 0, low: 0 },
+  };
+}
+
+const LOCAL_PACKETS_KEY = 'bd_evidence_packets';
+
+function loadLocalPackets(): EvidencePacket[] {
+  try { return JSON.parse(localStorage.getItem(LOCAL_PACKETS_KEY) || '[]'); }
+  catch { return []; }
+}
+
+function saveLocalPackets(packets: EvidencePacket[]) {
+  localStorage.setItem(LOCAL_PACKETS_KEY, JSON.stringify(packets));
 }
