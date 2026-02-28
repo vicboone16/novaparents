@@ -2,12 +2,13 @@
  * Function Finder™
  * ────────────────
  * Guided yes/no deterministic prompts → ranked function(s) + suggested data.
+ * Updated: dual labels, inline ⓘ, mixed/confidence display.
  */
 
 import { useState } from 'react';
 import { Search, Info, CheckCircle2, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { FUNCTION_LABELS, type BehaviorFunction } from '@/lib/analysis';
+import { FUNCTION_LABELS, FUNCTION_CLINICAL_TERMS, FUNCTION_INFO, type BehaviorFunction } from '@/lib/analysis';
 
 interface Question {
   id: string;
@@ -30,13 +31,13 @@ const QUESTIONS: Question[] = [
     info: 'If the behavior happens with no one around, it may meet a sensory or internal need.',
     yesBoost: { sensory: 3 } },
   { id: 'q5', text: 'Did the Learner get attention (positive or negative) after the behavior?',
-    info: 'This includes talking, yelling, comforting, lecturing, making eye contact, or picking them up.',
+    info: 'This includes talking, yelling, comforting, lecturing, making eye contact, or picking them up. Even negative attention counts.',
     yesBoost: { attention: 2 } },
   { id: 'q6', text: 'Was the demand removed, reduced, or delayed after the behavior?',
     info: 'If you stopped asking, gave a break, or said "fine, never mind," the demand was removed.',
     yesBoost: { escape: 2 } },
   { id: 'q7', text: 'Did the Learner get the item or activity they wanted?',
-    info: 'If they got the screen, toy, food, or activity during or after the behavior.',
+    info: 'If they got the screen, toy, food, or activity during or after the behavior — even after a delay.',
     yesBoost: { tangible: 2 } },
   { id: 'q8', text: 'Does the behavior involve repetitive movements, sounds, or sensory seeking?',
     info: 'Rocking, flapping, humming, chewing, spinning, mouthing objects, covering ears.',
@@ -70,8 +71,14 @@ export function FunctionFinderTool() {
   const ranked = (Object.entries(scores) as [BehaviorFunction, number][]).sort((a, b) => b[1] - a[1]);
   const primary = ranked[0];
   const secondary = ranked[1];
-  const isMixed = primary[1] > 0 && primary[1] === secondary[1];
-  const confidence = primary[1] >= 5 ? 'High' : primary[1] >= 3 ? 'Moderate' : isMixed ? 'Mixed' : 'Low';
+  const diff = primary[1] - secondary[1];
+  const isMixed = primary[1] > 0 && diff === 0;
+
+  let confidence: string;
+  if (isMixed) confidence = 'Mixed';
+  else if (primary[1] >= 4 && diff >= 2) confidence = 'High';
+  else if (primary[1] >= 3 && diff >= 1) confidence = 'Moderate';
+  else confidence = 'Low';
 
   const dataToTrack: Record<BehaviorFunction, string> = {
     attention: 'Track ABC data focusing on who was present and what attention was given.',
@@ -143,31 +150,72 @@ export function FunctionFinderTool() {
                 {isMixed ? 'Mixed Function' : `Primary: ${FUNCTION_LABELS[primary[0]]}`}
               </h4>
             </div>
+            <p className="text-[10px] text-muted-foreground">
+              Also known as: {FUNCTION_CLINICAL_TERMS[primary[0]]}
+            </p>
             {!isMixed && secondary[1] > 0 && (
-              <p className="text-xs text-muted-foreground">Secondary: {FUNCTION_LABELS[secondary[0]]} ({secondary[1]} pts)</p>
+              <p className="text-xs text-muted-foreground">
+                Secondary: {FUNCTION_LABELS[secondary[0]]}
+              </p>
             )}
             <span className={`inline-block rounded-full px-3 py-1 text-[10px] font-bold ${
               confidence === 'High' ? 'bg-success/10 text-success' :
               confidence === 'Moderate' ? 'bg-warning/10 text-warning' :
+              confidence === 'Mixed' ? 'bg-secondary/10 text-secondary' :
               'bg-muted text-muted-foreground'
             }`}>
               {confidence} confidence
             </span>
+
+            {isMixed && (
+              <p className="text-xs text-muted-foreground italic">
+                It looks like this behavior may serve more than one purpose. When behaviors work in multiple ways, they can grow faster. Let's focus on the strongest pattern first.
+              </p>
+            )}
+
+            {confidence === 'Low' && (
+              <p className="text-xs text-muted-foreground italic">
+                We don't have enough information yet to confidently identify the function. Consider tracking a few more instances.
+              </p>
+            )}
           </div>
 
-          {/* Score bars */}
+          {/* Score bars (no numeric pts shown) */}
           <div className="space-y-2">
             {ranked.map(([fn, score]) => {
               const max = Math.max(...ranked.map(r => r[1]), 1);
               return (
                 <div key={fn} className="space-y-1">
                   <div className="flex justify-between text-xs">
-                    <span className="text-foreground font-medium">{FUNCTION_LABELS[fn]}</span>
-                    <span className="text-muted-foreground">{score} pts</span>
+                    <div>
+                      <span className="text-foreground font-medium">{FUNCTION_LABELS[fn]}</span>
+                      <p className="text-[10px] text-muted-foreground/70">
+                        Also known as: {FUNCTION_CLINICAL_TERMS[fn]}
+                      </p>
+                    </div>
                   </div>
                   <div className="h-2 rounded-full bg-border overflow-hidden">
                     <div className="h-full rounded-full bg-primary transition-all duration-500" style={{ width: `${(score / max) * 100}%` }} />
                   </div>
+                  {/* Inline ⓘ */}
+                  <button
+                    onClick={() => setExpandedInfo(expandedInfo === `result-${fn}` ? null : `result-${fn}`)}
+                    className="text-[10px] text-primary flex items-center gap-0.5"
+                  >
+                    <Info className="h-3 w-3" /> {expandedInfo === `result-${fn}` ? 'Hide' : 'Learn more'}
+                  </button>
+                  {expandedInfo === `result-${fn}` && (
+                    <div className="bg-muted/50 rounded-lg p-3 animate-fade-in">
+                      <p className="text-[10px] text-foreground font-medium mb-1">{FUNCTION_INFO[fn].summary}</p>
+                      <ul className="space-y-0.5">
+                        {FUNCTION_INFO[fn].bullets.map((b, i) => (
+                          <li key={i} className="text-[10px] text-muted-foreground flex items-start gap-1.5">
+                            <span className="text-primary mt-0.5">•</span> {b}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               );
             })}
