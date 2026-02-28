@@ -1,13 +1,13 @@
 /**
  * "Is This Reinforcing?" Tool
  * ────────────────────────────
- * Quick check: did the adult's response reinforce the behavior?
- * Deterministic analysis with replacement behavior links.
+ * Updated: dual labels, inline ⓘ, confidence, alignment feedback.
+ * No numeric scores shown to parents.
  */
 
 import { useState, useEffect } from 'react';
 import {
-  HelpCircle, CheckCircle2, AlertTriangle, XCircle, ArrowRight, BookOpen, RotateCcw, Save,
+  HelpCircle, CheckCircle2, AlertTriangle, XCircle, ArrowRight, BookOpen, RotateCcw, Info,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -16,6 +16,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import {
   checkReinforcement,
   FUNCTION_LABELS,
+  FUNCTION_CLINICAL_TERMS,
+  FUNCTION_INFO,
   type BehaviorFunction,
   type ReinforcementResult,
 } from '@/lib/analysis';
@@ -24,10 +26,10 @@ import { getCurrentUser } from '@/lib/dal';
 import { logEvent } from '@/lib/engagement';
 
 const FUNCTION_OPTIONS: { value: BehaviorFunction; label: string; description: string }[] = [
-  { value: 'attention', label: 'Attention', description: 'Adult looked, talked, reacted, comforted' },
-  { value: 'escape', label: 'Escape', description: 'Demand stopped, break given, task removed' },
-  { value: 'tangible', label: 'Access to item/activity', description: 'Got the toy, screen, food, etc.' },
-  { value: 'sensory', label: 'Sensory input', description: 'Environment changed, self-stimulated' },
+  { value: 'attention', label: FUNCTION_LABELS.attention, description: 'Adult looked, talked, reacted, comforted' },
+  { value: 'escape', label: FUNCTION_LABELS.escape, description: 'Demand stopped, break given, task removed' },
+  { value: 'tangible', label: FUNCTION_LABELS.tangible, description: 'Got the toy, screen, food, etc.' },
+  { value: 'sensory', label: FUNCTION_LABELS.sensory, description: 'Environment changed, self-stimulated' },
 ];
 
 export function ReinforcementChecker() {
@@ -38,6 +40,7 @@ export function ReinforcementChecker() {
   const [whatYouDid, setWhatYouDid] = useState('');
   const [whatLearnerGot, setWhatLearnerGot] = useState<BehaviorFunction[]>([]);
   const [saveToPacket, setSaveToPacket] = useState(true);
+  const [expandedInfo, setExpandedInfo] = useState<string | null>(null);
 
   const [result, setResult] = useState<ReinforcementResult | null>(null);
   const [linkedSkills, setLinkedSkills] = useState<ReplacementBehavior[]>([]);
@@ -54,21 +57,13 @@ export function ReinforcementChecker() {
   }
 
   function handleCheck() {
-    const res = checkReinforcement({
-      whatHappened,
-      whatYouDid,
-      whatLearnerGot,
-    });
+    const res = checkReinforcement({ whatHappened, whatYouDid, whatLearnerGot });
     setResult(res);
 
-    // Link replacement behaviors by matched functions
     const relevant = res.matchedFunctions;
-    const skills = library
-      .filter(rb => relevant.includes(rb.function))
-      .slice(0, 3);
+    const skills = library.filter(rb => relevant.includes(rb.function)).slice(0, 3);
     setLinkedSkills(skills);
 
-    // Save to engagement log
     if (saveToPacket && userId) {
       logEvent(userId, 'behavior_log_created', {
         logId: crypto.randomUUID(),
@@ -91,11 +86,8 @@ export function ReinforcementChecker() {
   }
 
   function handleReset() {
-    setWhatHappened('');
-    setWhatYouDid('');
-    setWhatLearnerGot([]);
-    setResult(null);
-    setLinkedSkills([]);
+    setWhatHappened(''); setWhatYouDid(''); setWhatLearnerGot([]);
+    setResult(null); setLinkedSkills([]);
   }
 
   const canCheck = whatHappened.trim().length > 0 && whatYouDid.trim().length > 0;
@@ -106,10 +98,10 @@ export function ReinforcementChecker() {
       <div className="rounded-xl bg-secondary/10 border border-secondary/20 p-4">
         <div className="flex items-center gap-2 mb-1">
           <HelpCircle className="h-5 w-5 text-secondary" />
-          <h3 className="font-display text-lg font-bold text-foreground">Is This Reinforcing?</h3>
+          <h3 className="font-display text-lg font-bold text-foreground">Reinforcement Check™</h3>
         </div>
         <p className="text-sm text-muted-foreground">
-          Quickly check if your response may have accidentally reinforced the behavior.
+          Quickly check if your response may have accidentally strengthened the behavior.
         </p>
       </div>
 
@@ -144,26 +136,48 @@ export function ReinforcementChecker() {
           </div>
           <div className="space-y-2">
             {FUNCTION_OPTIONS.map(opt => (
-              <button
-                key={opt.value}
-                onClick={() => toggleFunction(opt.value)}
-                className={`w-full text-left rounded-lg border p-3 transition-all ${
-                  whatLearnerGot.includes(opt.value)
-                    ? 'border-primary bg-primary/5 ring-1 ring-primary'
-                    : 'border-border bg-muted/20 hover:bg-muted/40'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <Checkbox
-                    checked={whatLearnerGot.includes(opt.value)}
-                    onCheckedChange={() => toggleFunction(opt.value)}
-                  />
-                  <div>
-                    <p className="text-sm font-medium text-foreground">{opt.label}</p>
-                    <p className="text-[10px] text-muted-foreground">{opt.description}</p>
+              <div key={opt.value}>
+                <button
+                  onClick={() => toggleFunction(opt.value)}
+                  className={`w-full text-left rounded-lg border p-3 transition-all ${
+                    whatLearnerGot.includes(opt.value)
+                      ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                      : 'border-border bg-muted/20 hover:bg-muted/40'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Checkbox
+                      checked={whatLearnerGot.includes(opt.value)}
+                      onCheckedChange={() => toggleFunction(opt.value)}
+                    />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-foreground">{opt.label}</p>
+                      <p className="text-[10px] text-muted-foreground">{opt.description}</p>
+                      <p className="text-[10px] text-muted-foreground/70">
+                        Also known as: {FUNCTION_CLINICAL_TERMS[opt.value]}
+                      </p>
+                    </div>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setExpandedInfo(expandedInfo === opt.value ? null : opt.value); }}
+                      className="text-primary hover:text-primary/80"
+                    >
+                      <Info className="h-3.5 w-3.5" />
+                    </button>
                   </div>
-                </div>
-              </button>
+                </button>
+                {expandedInfo === opt.value && (
+                  <div className="bg-muted/50 rounded-lg p-3 mt-1 animate-fade-in">
+                    <p className="text-[10px] text-foreground font-medium mb-1">{FUNCTION_INFO[opt.value].summary}</p>
+                    <ul className="space-y-0.5">
+                      {FUNCTION_INFO[opt.value].bullets.map((b, i) => (
+                        <li key={i} className="text-[10px] text-muted-foreground flex items-start gap-1.5">
+                          <span className="text-primary mt-0.5">•</span> {b}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
             ))}
           </div>
         </div>
@@ -196,8 +210,25 @@ export function ReinforcementChecker() {
               {likelihoodIcon(result.likelihood)}
               <h4 className="font-display font-bold text-lg text-foreground">{result.label}</h4>
             </div>
+            <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold ${
+              result.confidence === 'high' ? 'bg-success/10 text-success' :
+              result.confidence === 'moderate' ? 'bg-warning/10 text-warning' :
+              'bg-muted text-muted-foreground'
+            }`}>
+              {result.confidence} confidence
+            </span>
             <p className="text-sm text-foreground/80">{result.explanation}</p>
           </div>
+
+          {/* Function-Response Alignment */}
+          {result.alignmentFeedback && (
+            <div className="rounded-xl border border-border bg-card p-4 shadow-card space-y-2">
+              <h4 className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                <ArrowRight className="h-3.5 w-3.5 text-primary" /> Does your response match the function?
+              </h4>
+              <p className="text-sm text-muted-foreground">{result.alignmentFeedback}</p>
+            </div>
+          )}
 
           {/* What to do instead */}
           <div className="rounded-xl border border-border bg-card p-5 shadow-card space-y-3">
@@ -216,6 +247,16 @@ export function ReinforcementChecker() {
             </ul>
           </div>
 
+          {/* Low/Mixed: link to Translator */}
+          {(result.likelihood === 'possibly' || result.confidence === 'low' || result.confidence === 'mixed') && (
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-center">
+              <p className="text-xs text-muted-foreground mb-2">Want a deeper analysis?</p>
+              <Button size="sm" variant="outline" onClick={() => window.location.href = '/toolkit?tab=translator'} className="gap-1.5">
+                <ArrowRight className="h-3.5 w-3.5" /> Translate the Behavior
+              </Button>
+            </div>
+          )}
+
           {/* Linked replacement behaviors */}
           {linkedSkills.length > 0 && (
             <div className="rounded-xl border border-border bg-card p-5 shadow-card space-y-3">
@@ -228,7 +269,7 @@ export function ReinforcementChecker() {
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-semibold text-foreground">{skill.trigger}</span>
                       <span className="rounded-full bg-primary/10 text-primary px-2 py-0.5 text-[10px] font-bold">
-                        {skill.function}
+                        {FUNCTION_LABELS[skill.function as BehaviorFunction] || skill.function}
                       </span>
                     </div>
                     <p className="text-xs text-muted-foreground">{skill.definition}</p>

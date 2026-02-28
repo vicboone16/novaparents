@@ -3,26 +3,33 @@
  * ──────────────────────────
  * Structured ABC input → deterministic function ranking →
  * suggested response + replacement skills from library.
+ * Updated: +2 scoring, inline ⓘ, adult reflection, alignment feedback.
  */
 
 import { useState, useEffect } from 'react';
 import {
   Sparkles, ArrowRight, Pin, Play, Save, ChevronDown, ChevronUp,
-  CheckCircle2, Target, Lightbulb, BookOpen, RotateCcw,
+  CheckCircle2, Target, Lightbulb, BookOpen, RotateCcw, Info,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   scoreFunctions,
   ANTECEDENT_OPTIONS,
   BEHAVIOR_OPTIONS,
   CONSEQUENCE_OPTIONS,
+  FUNCTION_LABELS,
+  FUNCTION_CLINICAL_TERMS,
+  FUNCTION_INFO,
+  DEMAND_INFO,
+  ATTENTION_INTENSE_INFO,
   type FunctionInput,
   type FunctionResult,
   type StructuredToggles,
+  type AdultReliefSelections,
   type BehaviorFunction,
 } from '@/lib/analysis';
 import { getReplacementBehaviors, type ReplacementBehavior } from '@/lib/dal';
@@ -39,6 +46,21 @@ interface PinnedPlan {
   suggestedResponse: string[];
   replacementSkills: string[];
 }
+
+const CONSEQUENCE_TOGGLES: { key: keyof StructuredToggles; label: string; fn: BehaviorFunction }[] = [
+  { key: 'attentionGiven', label: 'Attention given', fn: 'attention' },
+  { key: 'demandRemoved', label: 'Demand reduced / paused', fn: 'escape' },
+  { key: 'accessProvided', label: 'Access to preferred item / activity', fn: 'tangible' },
+  { key: 'sensoryChange', label: 'Sensory / environment change', fn: 'sensory' },
+];
+
+const ADULT_RELIEF_OPTIONS: { key: keyof AdultReliefSelections; label: string }[] = [
+  { key: 'arguingStopped', label: 'The arguing stopped' },
+  { key: 'noiseStopped', label: 'The noise stopped' },
+  { key: 'taskEnded', label: 'The task ended' },
+  { key: 'feltRelief', label: 'I felt relief / calm' },
+  { key: 'nothingChanged', label: 'Nothing changed' },
+];
 
 export function BehaviorTranslator() {
   const [userId, setUserId] = useState('');
@@ -57,9 +79,22 @@ export function BehaviorTranslator() {
     demandRemoved: false,
     accessProvided: false,
     sensoryChange: false,
+    attentionIntense: false,
+    demandContext: false,
   });
 
-  // Filters for replacement skills
+  const [adultRelief, setAdultRelief] = useState<AdultReliefSelections>({
+    arguingStopped: false,
+    noiseStopped: false,
+    taskEnded: false,
+    feltRelief: false,
+    nothingChanged: false,
+  });
+
+  // Inline info state
+  const [expandedInfo, setExpandedInfo] = useState<string | null>(null);
+
+  // Filters
   const [commLevel, setCommLevel] = useState('');
   const [setting, setSetting] = useState('');
   const [ageBand, setAgeBand] = useState('');
@@ -86,12 +121,12 @@ export function BehaviorTranslator() {
       consequence,
       consequenceCategory: consequenceCat,
       toggles,
+      adultRelief,
     };
 
     const res = scoreFunctions(input);
     setResult(res);
 
-    // Filter replacement skills by top function + optional filters
     const filtered = library.filter(rb => {
       if (rb.function !== res.topFunction) return false;
       if (commLevel && rb.commLevel !== commLevel) return false;
@@ -100,24 +135,21 @@ export function BehaviorTranslator() {
       return true;
     });
 
-    // If no exact matches, fall back to just function match
     const skills = filtered.length > 0
       ? filtered
       : library.filter(rb => rb.function === res.topFunction);
 
     setMatchedSkills(skills.slice(0, 5));
 
-    // Save to evidence packet engagement log
     if (saveToPacket && userId) {
       logEvent(userId, 'behavior_log_created', {
         logId: crypto.randomUUID(),
         source: 'translator',
         topFunction: res.topFunction,
-        confidence: res.rankings[0].confidence,
+        confidence: res.overallConfidence,
         behavior,
       });
 
-      // Also save to local translator history
       const history = loadLocal('bd_translator_history');
       history.unshift({
         id: crypto.randomUUID(),
@@ -126,7 +158,7 @@ export function BehaviorTranslator() {
         behavior,
         consequence,
         topFunction: res.topFunction,
-        confidence: res.rankings[0].confidence,
+        confidence: res.overallConfidence,
         scores: res.rankings.map(r => ({ fn: r.function, score: r.score })),
       });
       saveLocal('bd_translator_history', history.slice(0, 100));
@@ -149,27 +181,18 @@ export function BehaviorTranslator() {
   }
 
   function handleStartTracking() {
-    // Prefill ABC log data
-    const prefill = {
-      behavior,
-      antecedent,
-      consequence,
-      setting: setting || '',
-    };
+    const prefill = { behavior, antecedent, consequence, setting: setting || '' };
     sessionStorage.setItem('bd_prefill_abc', JSON.stringify(prefill));
     window.location.href = '/log';
   }
 
   function handleReset() {
-    setAntecedent('');
-    setAntecedentCat('');
-    setBehavior('');
-    setBehaviorCat('');
-    setConsequence('');
-    setConsequenceCat('');
-    setToggles({ attentionGiven: false, demandRemoved: false, accessProvided: false, sensoryChange: false });
-    setResult(null);
-    setMatchedSkills([]);
+    setAntecedent(''); setAntecedentCat('');
+    setBehavior(''); setBehaviorCat('');
+    setConsequence(''); setConsequenceCat('');
+    setToggles({ attentionGiven: false, demandRemoved: false, accessProvided: false, sensoryChange: false, attentionIntense: false, demandContext: false });
+    setAdultRelief({ arguingStopped: false, noiseStopped: false, taskEnded: false, feltRelief: false, nothingChanged: false });
+    setResult(null); setMatchedSkills([]);
   }
 
   const canAnalyze = behavior.trim().length > 0;
@@ -180,33 +203,50 @@ export function BehaviorTranslator() {
       <div className="rounded-xl gradient-hero p-4 text-primary-foreground">
         <div className="flex items-center gap-2 mb-1">
           <Sparkles className="h-5 w-5" />
-          <h3 className="font-display text-lg font-bold">Parent Behavior Translator</h3>
+          <h3 className="font-display text-lg font-bold">Translate the Behavior™</h3>
         </div>
         <p className="text-sm text-primary-foreground/80">
-          Describe what happened and get a function-based analysis with replacement skill ideas.
+          Describe what happened and we'll help identify what the behavior might be communicating.
         </p>
       </div>
 
-      {/* ─── Inputs ────────────────────────────────────── */}
+      {/* ─── Step 1: Antecedent ──────────────────────── */}
       <div className="space-y-4">
-        {/* Antecedent */}
-        <FieldGroup label="What happened right before?" sub="(Antecedent)">
+        <FieldGroup label="Step 1: What happened right before?" sub="(Antecedent)">
           <Select value={antecedentCat} onValueChange={setAntecedentCat}>
             <SelectTrigger className="mb-2"><SelectValue placeholder="Select a category (optional)" /></SelectTrigger>
             <SelectContent>
               {ANTECEDENT_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
             </SelectContent>
           </Select>
+          <InlineInfo
+            id="demand"
+            expanded={expandedInfo}
+            onToggle={setExpandedInfo}
+            content={DEMAND_INFO}
+          />
           <Textarea
             placeholder="Describe what was happening before the behavior…"
             rows={2}
             value={antecedent}
             onChange={e => setAntecedent(e.target.value)}
           />
+          {/* Demand context toggle */}
+          <div className="flex items-center gap-2 mt-2">
+            <Checkbox
+              checked={toggles.demandContext}
+              onCheckedChange={(v) => setToggles(t => ({ ...t, demandContext: !!v }))}
+            />
+            <span className="text-xs text-foreground">Was there a demand?</span>
+            <InlineInfoButton id="demand-toggle" expanded={expandedInfo} onToggle={setExpandedInfo} />
+          </div>
+          {expandedInfo === 'demand-toggle' && (
+            <InlineInfoPanel content={DEMAND_INFO} />
+          )}
         </FieldGroup>
 
-        {/* Behavior */}
-        <FieldGroup label="What did the Learner do?" sub="(Behavior)">
+        {/* ─── Step 2: Behavior ──────────────────────── */}
+        <FieldGroup label="Step 2: What did the Learner do?" sub="(Behavior)">
           <Select value={behaviorCat} onValueChange={setBehaviorCat}>
             <SelectTrigger className="mb-2"><SelectValue placeholder="Select a category (optional)" /></SelectTrigger>
             <SelectContent>
@@ -221,49 +261,100 @@ export function BehaviorTranslator() {
           />
         </FieldGroup>
 
-        {/* Consequence */}
-        <FieldGroup label="What did the adult do right after?" sub="(Consequence)">
-          <Select value={consequenceCat} onValueChange={setConsequenceCat}>
-            <SelectTrigger className="mb-2"><SelectValue placeholder="Select a category (optional)" /></SelectTrigger>
-            <SelectContent>
-              {CONSEQUENCE_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-            </SelectContent>
-          </Select>
+        {/* ─── Step 3: Consequences (multi-select) ──── */}
+        <div className="rounded-xl border border-border bg-card p-4 shadow-card space-y-3">
+          <div>
+            <label className="text-sm font-semibold text-foreground">Step 3: What happened after?</label>
+            <p className="text-[10px] text-muted-foreground">Select all that apply.</p>
+          </div>
+
+          <div className="space-y-2">
+            {CONSEQUENCE_TOGGLES.map(ct => (
+              <div key={ct.key}>
+                <button
+                  onClick={() => setToggles(t => ({ ...t, [ct.key]: !t[ct.key] }))}
+                  className={`w-full text-left rounded-lg border p-3 transition-all ${
+                    toggles[ct.key]
+                      ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                      : 'border-border bg-muted/20 hover:bg-muted/40'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Checkbox checked={!!toggles[ct.key]} onCheckedChange={(v) => setToggles(t => ({ ...t, [ct.key]: !!v }))} />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-foreground">{ct.label}</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        Also known as: {FUNCTION_CLINICAL_TERMS[ct.fn]}
+                      </p>
+                    </div>
+                    <InlineInfoButton id={`consequence-${ct.fn}`} expanded={expandedInfo} onToggle={setExpandedInfo} />
+                  </div>
+                </button>
+                {expandedInfo === `consequence-${ct.fn}` && (
+                  <InlineInfoPanel content={FUNCTION_INFO[ct.fn]} />
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Attention intensity toggle */}
+          {toggles.attentionGiven && (
+            <div className="mt-2 ml-1">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  checked={!!toggles.attentionIntense}
+                  onCheckedChange={(v) => setToggles(t => ({ ...t, attentionIntense: !!v }))}
+                />
+                <span className="text-xs text-foreground">Was attention extended or intense?</span>
+                <InlineInfoButton id="attention-intense" expanded={expandedInfo} onToggle={setExpandedInfo} />
+              </div>
+              {expandedInfo === 'attention-intense' && (
+                <InlineInfoPanel content={ATTENTION_INTENSE_INFO} />
+              )}
+            </div>
+          )}
+
+          {/* Free text consequence */}
           <Textarea
-            placeholder="Describe how you or others responded…"
+            placeholder="Any other details about what happened after…"
             rows={2}
             value={consequence}
             onChange={e => setConsequence(e.target.value)}
+            className="mt-2"
           />
-        </FieldGroup>
+        </div>
 
-        {/* Structured toggles */}
+        {/* ─── Step 4: Adult Reflection (optional) ──── */}
         <div className="rounded-xl border border-border bg-card p-4 shadow-card space-y-3">
-          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">What happened as a result?</h4>
-          <ToggleRow
-            label="Attention given?"
-            sub="Adult looked, talked, comforted, or reacted"
-            checked={toggles.attentionGiven}
-            onChange={v => setToggles(t => ({ ...t, attentionGiven: v }))}
-          />
-          <ToggleRow
-            label="Demand removed / break given?"
-            sub="Task stopped, reduced, or postponed"
-            checked={toggles.demandRemoved}
-            onChange={v => setToggles(t => ({ ...t, demandRemoved: v }))}
-          />
-          <ToggleRow
-            label="Access provided?"
-            sub="Learner got the item, activity, or screen"
-            checked={toggles.accessProvided}
-            onChange={v => setToggles(t => ({ ...t, accessProvided: v }))}
-          />
-          <ToggleRow
-            label="Sensory change?"
-            sub="Environment changed (quieter, moved, etc.)"
-            checked={toggles.sensoryChange}
-            onChange={v => setToggles(t => ({ ...t, sensoryChange: v }))}
-          />
+          <div>
+            <label className="text-sm font-semibold text-foreground">Step 4: Quick reflection (optional)</label>
+            <p className="text-[10px] text-muted-foreground">
+              Sometimes behavior changes things for adults too. Did your response make anything easier for you?
+            </p>
+          </div>
+          <div className="space-y-2">
+            {ADULT_RELIEF_OPTIONS.map(opt => (
+              <button
+                key={opt.key}
+                onClick={() => setAdultRelief(a => ({ ...a, [opt.key]: !a[opt.key] }))}
+                className={`w-full text-left rounded-lg border p-3 transition-all ${
+                  adultRelief[opt.key]
+                    ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                    : 'border-border bg-muted/20 hover:bg-muted/40'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Checkbox checked={adultRelief[opt.key]} onCheckedChange={() => setAdultRelief(a => ({ ...a, [opt.key]: !a[opt.key] }))} />
+                  <span className="text-sm text-foreground">{opt.label}</span>
+                </div>
+              </button>
+            ))}
+          </div>
+          {(adultRelief.arguingStopped || adultRelief.noiseStopped || adultRelief.taskEnded || adultRelief.feltRelief) && (
+            <p className="text-[10px] text-muted-foreground italic bg-muted/50 rounded-lg p-2">
+              Noticing this doesn't mean you did anything wrong. It just helps us understand the full behavior loop.
+            </p>
+          )}
         </div>
 
         {/* Optional filters */}
@@ -319,7 +410,7 @@ export function BehaviorTranslator() {
               </Button>
             )}
             <Button size="sm" onClick={handleAnalyze} disabled={!canAnalyze} className="gap-1.5">
-              <Target className="h-4 w-4" /> Analyze Behavior
+              <Target className="h-4 w-4" /> Analyze
             </Button>
           </div>
         </div>
@@ -328,6 +419,13 @@ export function BehaviorTranslator() {
       {/* ─── Results ───────────────────────────────────── */}
       {result && (
         <div className="space-y-4 animate-fade-in">
+          {/* Clarification question */}
+          {result.needsClarification && result.clarificationQuestion && (
+            <div className="rounded-xl border border-warning/30 bg-warning/5 p-4 space-y-2">
+              <p className="text-sm text-foreground">{result.clarificationQuestion}</p>
+            </div>
+          )}
+
           {/* Function ranking */}
           <div className="rounded-xl border border-primary/20 bg-card p-5 shadow-soft space-y-4">
             <div className="flex items-center justify-between">
@@ -345,16 +443,35 @@ export function BehaviorTranslator() {
 
             {/* Top result */}
             <div className="rounded-xl bg-primary/5 border border-primary/20 p-4 space-y-2">
-              <div className="flex items-center gap-2">
-                <span className={`rounded-full px-3 py-1 text-xs font-bold ${confidenceStyle(result.rankings[0].confidence)}`}>
-                  {result.rankings[0].confidence} confidence
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className={`rounded-full px-3 py-1 text-xs font-bold ${confidenceStyle(result.overallConfidence)}`}>
+                  {result.overallConfidence} confidence
                 </span>
-                <span className="font-display font-bold text-lg text-foreground">{result.rankings[0].label}</span>
               </div>
+              <div>
+                <p className="font-display font-bold text-lg text-foreground">
+                  {result.isMixed ? 'Mixed Function' : result.rankings[0].label}
+                </p>
+                <p className="text-[10px] text-muted-foreground">
+                  Also known as: {result.rankings[0].clinicalTerm}
+                </p>
+              </div>
+              {result.secondaryFunction && !result.isMixed && (
+                <p className="text-xs text-muted-foreground">
+                  Secondary: {FUNCTION_LABELS[result.secondaryFunction]}
+                </p>
+              )}
               <p className="text-sm text-muted-foreground">{result.explanation}</p>
             </div>
 
-            {/* Full ranking bars */}
+            {/* Micro-feedback */}
+            {result.topFunction === 'attention' && (
+              <p className="text-[10px] text-muted-foreground italic bg-muted/30 rounded-lg p-2">
+                💡 Attention isn't always positive — negative attention (arguing, lecturing) can still strengthen behavior.
+              </p>
+            )}
+
+            {/* Full ranking bars (no numeric scores shown to parents) */}
             {showRankings && (
               <div className="space-y-2">
                 {result.rankings.map(r => {
@@ -363,7 +480,9 @@ export function BehaviorTranslator() {
                     <div key={r.function} className="space-y-1">
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-foreground font-medium">{r.label}</span>
-                        <span className="text-muted-foreground">{r.score} pts ({r.confidence})</span>
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${confidenceStyle(r.confidence)}`}>
+                          {r.confidence}
+                        </span>
                       </div>
                       <div className="h-2 rounded-full bg-border overflow-hidden">
                         <div
@@ -376,6 +495,14 @@ export function BehaviorTranslator() {
                 })}
               </div>
             )}
+          </div>
+
+          {/* Function-Response Alignment */}
+          <div className="rounded-xl border border-border bg-card p-4 shadow-card space-y-2">
+            <h4 className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+              <ArrowRight className="h-3.5 w-3.5 text-primary" /> Does your response match the function?
+            </h4>
+            <p className="text-sm text-muted-foreground">{result.alignmentFeedback}</p>
           </div>
 
           {/* Suggested response */}
@@ -407,7 +534,7 @@ export function BehaviorTranslator() {
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-semibold text-foreground">{skill.trigger}</span>
                       <span className="rounded-full bg-primary/10 text-primary px-2 py-0.5 text-[10px] font-bold">
-                        {skill.function}
+                        {FUNCTION_LABELS[skill.function as BehaviorFunction] || skill.function}
                       </span>
                     </div>
                     <p className="text-xs text-muted-foreground">{skill.definition}</p>
@@ -479,24 +606,55 @@ function FieldGroup({ label, sub, children }: { label: string; sub: string; chil
   );
 }
 
-function ToggleRow({ label, sub, checked, onChange }: {
-  label: string; sub: string; checked: boolean; onChange: (v: boolean) => void;
+function InlineInfoButton({ id, expanded, onToggle }: { id: string; expanded: string | null; onToggle: (id: string | null) => void }) {
+  return (
+    <button
+      onClick={(e) => { e.stopPropagation(); onToggle(expanded === id ? null : id); }}
+      className="text-primary hover:text-primary/80 transition-colors"
+      aria-label="More info"
+    >
+      <Info className="h-3.5 w-3.5" />
+    </button>
+  );
+}
+
+function InlineInfo({ id, expanded, onToggle, content }: {
+  id: string; expanded: string | null; onToggle: (id: string | null) => void;
+  content: { summary: string; bullets: string[] };
 }) {
   return (
-    <div className="flex items-center justify-between py-1.5 border-b border-border/50 last:border-0">
-      <div>
-        <p className="text-sm font-medium text-foreground">{label}</p>
-        <p className="text-[10px] text-muted-foreground">{sub}</p>
-      </div>
-      <Switch checked={checked} onCheckedChange={onChange} />
+    <>
+      <button
+        onClick={() => onToggle(expanded === id ? null : id)}
+        className="text-[10px] text-primary flex items-center gap-0.5"
+      >
+        <Info className="h-3 w-3" /> {expanded === id ? 'Hide info' : 'More info'}
+      </button>
+      {expanded === id && <InlineInfoPanel content={content} />}
+    </>
+  );
+}
+
+function InlineInfoPanel({ content }: { content: { summary: string; bullets: string[] } }) {
+  return (
+    <div className="bg-muted/50 rounded-lg p-3 mt-1 animate-fade-in">
+      <p className="text-[10px] text-foreground font-medium mb-1">{content.summary}</p>
+      <ul className="space-y-0.5">
+        {content.bullets.map((b, i) => (
+          <li key={i} className="text-[10px] text-muted-foreground flex items-start gap-1.5">
+            <span className="text-primary mt-0.5">•</span> {b}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
 
-function confidenceStyle(c: 'high' | 'moderate' | 'low'): string {
+function confidenceStyle(c: 'high' | 'moderate' | 'low' | 'mixed'): string {
   switch (c) {
     case 'high': return 'bg-success/10 text-success';
     case 'moderate': return 'bg-warning/10 text-warning';
+    case 'mixed': return 'bg-secondary/10 text-secondary';
     case 'low': return 'bg-muted text-muted-foreground';
   }
 }

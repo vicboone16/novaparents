@@ -1,21 +1,28 @@
 /**
  * Coach Dashboard (Home)
  * ──────────────────────
- * Quick actions, pending Evidence Packet status, daily focus.
+ * Why Loop: first-time → 2-card onboarding; returning → guided next step.
+ * Crisis ↔ Literacy loop prompts after tool/module completion.
  */
 
 import { useEffect, useState } from 'react';
-import { BookOpen, PenLine, Lightbulb, ArrowRight, Heart, Sparkles, Package, Send, CheckCircle2, AlertTriangle, Clock } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import {
+  BookOpen, PenLine, Lightbulb, ArrowRight, Heart, Sparkles,
+  Package, Send, CheckCircle2, AlertTriangle, Clock, Zap, Brain,
+} from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import { getCurrentUser } from '@/lib/dal';
 import { Button } from '@/components/ui/button';
 import { getPackets, submitEvidencePacket, type EvidencePacket, type PacketStatus } from '@/lib/evidence';
 import { EvidencePacketPreview } from '@/components/EvidencePacketPreview';
 
-const quickActions = [
-  { to: '/log', icon: PenLine, label: 'Log Data', color: 'bg-secondary/10 text-secondary' },
-  { to: '/toolkit', icon: Lightbulb, label: 'What Do I Do When…', color: 'bg-accent/10 text-accent' },
-  { to: '/toolkit', icon: BookOpen, label: 'Continue Learning', color: 'bg-primary/10 text-primary' },
+const ONBOARDING_KEY = 'bd_onboarding_complete';
+const GROWTH_LEVELS = [
+  { level: 1, name: 'Observer', xpNeeded: 0 },
+  { level: 2, name: 'Behavior Detective', xpNeeded: 100 },
+  { level: 3, name: 'Reinforcement Reader', xpNeeded: 250 },
+  { level: 4, name: 'Pattern Spotter', xpNeeded: 500 },
+  { level: 5, name: 'Confident Coach', xpNeeded: 1000 },
 ];
 
 const statusConfig: Record<PacketStatus, { label: string; cls: string; icon: React.ElementType }> = {
@@ -27,12 +34,49 @@ const statusConfig: Record<PacketStatus, { label: string; cls: string; icon: Rea
   rejected: { label: 'Rejected', cls: 'bg-destructive/10 text-destructive', icon: AlertTriangle },
 };
 
+function getXp(): number {
+  try {
+    const progress = JSON.parse(localStorage.getItem('bd_curriculum_progress') || '{}');
+    return Object.keys(progress).filter(k => progress[k]).length * 25;
+  } catch { return 0; }
+}
+
+function getCurrentLevel(xp: number) {
+  for (let i = GROWTH_LEVELS.length - 1; i >= 0; i--) {
+    if (xp >= GROWTH_LEVELS[i].xpNeeded) return GROWTH_LEVELS[i];
+  }
+  return GROWTH_LEVELS[0];
+}
+
+function getNextLevel(xp: number) {
+  const current = getCurrentLevel(xp);
+  return GROWTH_LEVELS.find(l => l.xpNeeded > current.xpNeeded) || null;
+}
+
+function getRecentInsight(): string {
+  const insights = [
+    'Escape behaviors often happen during transitions — a visual timer can help.',
+    "Negative attention still counts as attention. Even saying 'stop' is a response.",
+    'When a behavior works for both the Learner and the adult, it gets stronger faster.',
+    'Consistency is more important than perfection. Small shifts add up.',
+    'Replacement skills work best when they get the same result as the behavior.',
+  ];
+  const day = Math.floor(Date.now() / 86400000);
+  return insights[day % insights.length];
+}
+
 export default function Dashboard() {
   const [userName, setUserName] = useState('');
   const [userId, setUserId] = useState('');
   const [packets, setPackets] = useState<EvidencePacket[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const navigate = useNavigate();
+
+  const isFirstTime = !localStorage.getItem(ONBOARDING_KEY);
+  const xp = getXp();
+  const level = getCurrentLevel(xp);
+  const nextLevel = getNextLevel(xp);
 
   useEffect(() => {
     getCurrentUser().then((user) => {
@@ -40,11 +84,20 @@ export default function Dashboard() {
         const email = user.email || '';
         setUserName(email.split('@')[0] || 'there');
         setUserId(user.id);
-        // Fetch packets from backend
         getPackets(user.id).then(setPackets);
       }
     });
   }, []);
+
+  function handleStartLearning() {
+    localStorage.setItem(ONBOARDING_KEY, 'true');
+    navigate('/toolkit?tab=academy');
+  }
+
+  function handleQuickSupport() {
+    localStorage.setItem(ONBOARDING_KEY, 'true');
+    navigate('/toolkit?tab=translator');
+  }
 
   async function handleSubmitPacket() {
     if (!userId) return;
@@ -62,6 +115,61 @@ export default function Dashboard() {
   const latestPacket = packets[0] || null;
   const followupPacket = packets.find(p => p.status === 'needs_followup');
 
+  // ─── First-time: 2-card onboarding ────────────────
+  if (isFirstTime) {
+    return (
+      <div className="space-y-5 animate-fade-in">
+        {/* Welcome */}
+        <section className="rounded-2xl gradient-hero p-6 text-primary-foreground shadow-soft text-center space-y-2">
+          <h2 className="font-display text-xl font-bold">Welcome to Behavior Decoded™</h2>
+          <p className="text-sm text-primary-foreground/80">
+            Understanding behavior starts here. Let's take your first step.
+          </p>
+        </section>
+
+        {/* Card 1: Start Learning */}
+        <button
+          onClick={handleStartLearning}
+          className="w-full rounded-2xl border border-primary/20 bg-card p-5 shadow-soft hover:shadow-md transition-all text-left space-y-3"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
+              <Brain className="h-6 w-6 text-primary" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-display font-bold text-foreground text-lg">🌟 Start Here</h3>
+              <p className="text-sm text-muted-foreground">
+                Understanding Why Behavior Happens
+              </p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">5 minutes</p>
+            </div>
+            <ArrowRight className="h-5 w-5 text-primary shrink-0" />
+          </div>
+        </button>
+
+        {/* Card 2: Quick Support */}
+        <button
+          onClick={handleQuickSupport}
+          className="w-full rounded-2xl border border-secondary/20 bg-card p-5 shadow-soft hover:shadow-md transition-all text-left space-y-3"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-secondary/10">
+              <Zap className="h-6 w-6 text-secondary" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-display font-bold text-foreground text-lg">🔵 Need help right now?</h3>
+              <p className="text-sm text-muted-foreground">
+                Translate a behavior and get a plan
+              </p>
+            </div>
+            <ArrowRight className="h-5 w-5 text-secondary shrink-0" />
+          </div>
+        </button>
+      </div>
+    );
+  }
+
+  // ─── Returning user dashboard ──────────────────────
   return (
     <div className="space-y-5">
       {/* Welcome */}
@@ -98,6 +206,82 @@ export default function Dashboard() {
           )}
         </section>
       )}
+
+      {/* Your Next Step + Quick Support (2-card always) */}
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Link
+          to="/toolkit?tab=academy"
+          className="rounded-xl border border-primary/20 bg-card p-4 shadow-soft hover:shadow-md transition-all space-y-2"
+        >
+          <div className="flex items-center gap-2">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
+              <Brain className="h-4 w-4 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-wide text-primary">🌿 Your Next Step</p>
+              <p className="text-sm font-semibold text-foreground truncate">Continue Learning</p>
+            </div>
+            <ArrowRight className="h-4 w-4 text-primary shrink-0" />
+          </div>
+        </Link>
+
+        <Link
+          to="/toolkit?tab=translator"
+          className="rounded-xl border border-secondary/20 bg-card p-4 shadow-soft hover:shadow-md transition-all space-y-2"
+        >
+          <div className="flex items-center gap-2">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-secondary/10">
+              <Zap className="h-4 w-4 text-secondary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-wide text-secondary">⚡ Quick Support</p>
+              <p className="text-sm font-semibold text-foreground truncate">Translate a Behavior</p>
+            </div>
+            <ArrowRight className="h-4 w-4 text-secondary shrink-0" />
+          </div>
+        </Link>
+      </div>
+
+      {/* Your Growth */}
+      <section className="rounded-xl border border-border bg-card p-4 shadow-card space-y-3">
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-4 w-4 text-primary" />
+          <span className="text-xs font-semibold uppercase tracking-wide text-primary">📊 Your Growth</span>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="flex-1">
+            <p className="font-display font-bold text-foreground">
+              Level {level.level} — {level.name}
+            </p>
+            {nextLevel && (
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                {nextLevel.xpNeeded - xp} XP to {nextLevel.name}
+              </p>
+            )}
+          </div>
+          <div className="text-right">
+            <p className="font-display text-lg font-bold text-foreground">{xp}</p>
+            <p className="text-[10px] text-muted-foreground">XP</p>
+          </div>
+        </div>
+        {nextLevel && (
+          <div className="h-2 rounded-full bg-border overflow-hidden">
+            <div
+              className="h-full rounded-full bg-primary transition-all duration-500"
+              style={{ width: `${((xp - level.xpNeeded) / (nextLevel.xpNeeded - level.xpNeeded)) * 100}%` }}
+            />
+          </div>
+        )}
+      </section>
+
+      {/* Recent Insight */}
+      <section className="rounded-xl border border-primary/20 bg-card p-4 shadow-soft">
+        <div className="flex items-center gap-2 mb-2">
+          <Lightbulb className="h-4 w-4 text-primary" />
+          <span className="text-xs font-semibold uppercase tracking-wide text-primary">🧠 Recent Insight</span>
+        </div>
+        <p className="text-sm text-foreground italic">"{getRecentInsight()}"</p>
+      </section>
 
       {/* Evidence Packet Status */}
       <section className="rounded-xl border border-border bg-card p-4 shadow-card space-y-3">
@@ -160,30 +344,15 @@ export default function Dashboard() {
         submitting={submitting}
       />
 
-      {/* Today's Focus */}
-      <section className="rounded-xl border border-primary/20 bg-card p-4 shadow-soft">
-        <div className="flex items-center gap-2 mb-2">
-          <Sparkles className="h-4 w-4 text-primary" />
-          <span className="text-xs font-semibold uppercase tracking-wide text-primary">Today's Focus</span>
-        </div>
-        <Link to="/toolkit" className="group">
-          <h3 className="font-display font-bold text-foreground group-hover:text-primary transition-colors">
-            Module 3: Identifying Triggers
-          </h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Recognize what sets off challenging behaviors and plan ahead.
-          </p>
-          <span className="inline-flex items-center gap-1 mt-2 text-sm font-semibold text-primary">
-            Continue <ArrowRight className="h-3.5 w-3.5" />
-          </span>
-        </Link>
-      </section>
-
       {/* Quick Actions */}
       <section>
         <h3 className="font-display text-sm font-bold text-foreground mb-3">Quick Actions</h3>
         <div className="grid grid-cols-3 gap-3">
-          {quickActions.map((action, i) => (
+          {[
+            { to: '/log', icon: PenLine, label: 'Log Data', color: 'bg-secondary/10 text-secondary' },
+            { to: '/toolkit', icon: BookOpen, label: 'Continue Learning', color: 'bg-primary/10 text-primary' },
+            { to: '/toolkit?tab=reinforcing', icon: Lightbulb, label: 'Is This Reinforcing?', color: 'bg-accent/10 text-accent' },
+          ].map((action, i) => (
             <Link
               key={i}
               to={action.to}
