@@ -18,6 +18,7 @@ import BehaviorLogPage from "@/pages/BehaviorLogPage";
 import LibraryPage from "@/pages/LibraryPage";
 import ProfilePage from "@/pages/ProfilePage";
 import ProgressPage from "@/pages/ProgressPage";
+import AuditDashboardPage from "@/pages/AuditDashboardPage";
 import InviteAcceptPage from "@/pages/InviteAcceptPage";
 import NotFound from "./pages/NotFound";
 
@@ -72,6 +73,7 @@ function AppContent() {
         <Route path="/library" element={<LibraryPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/progress" element={<ProgressPage />} />
+        <Route path="/audit" element={<AuditDashboardPage />} />
         <Route path="/login" element={<Navigate to="/" replace />} />
         <Route path="*" element={<NotFound />} />
       </Routes>

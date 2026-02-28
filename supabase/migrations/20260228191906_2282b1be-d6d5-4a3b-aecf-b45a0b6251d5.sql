@@ -1,0 +1,1 @@
+ALTER TABLE public.app_handshake ENABLE ROW LEVEL SECURITY;
