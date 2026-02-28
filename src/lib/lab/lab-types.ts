@@ -69,7 +69,7 @@ export const SKILL_PACKS: { id: string; label: string; tags: string[]; stage: 1 
   { id: 'scripts_coaching', label: 'Scripts & Coaching', tags: ['scripts', 'de_escalation', 'tone', 'coaching', 'coach_regulation', 'antecedents', 'consequences', 'fundamentals', 'habit'], stage: 1 },
   { id: 'replacement', label: 'Replacement Skills', tags: ['replacement_skills', 'reinforcement_planning'], stage: 2 },
   { id: 'data', label: 'Data Skills', tags: ['data', 'measurement', 'intensity'], stage: 2 },
-  { id: 'supports', label: 'Supports & Tools', tags: ['supports', 'prompting', 'generalization', 'retention'], stage: 2 },
+  { id: 'supports', label: 'Supports & Tools', tags: ['supports', 'prompting', 'generalization', 'retention', 'maintenance'], stage: 2 },
 ];
 
 export function calculateXp(scorePercent: number): number {
