@@ -14,6 +14,374 @@ export type Database = {
   }
   public: {
     Tables: {
+      academy_module_assignments: {
+        Row: {
+          agency_id: string | null
+          assigned_by: string | null
+          coach_user_id: string
+          created_at: string
+          due_date: string | null
+          id: string
+          learner_id: string | null
+          module_id: string
+          module_version_id: string | null
+          note_to_coach: string | null
+          reminder_cadence: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          agency_id?: string | null
+          assigned_by?: string | null
+          coach_user_id: string
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          learner_id?: string | null
+          module_id: string
+          module_version_id?: string | null
+          note_to_coach?: string | null
+          reminder_cadence?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string | null
+          assigned_by?: string | null
+          coach_user_id?: string
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          learner_id?: string | null
+          module_id?: string
+          module_version_id?: string | null
+          note_to_coach?: string | null
+          reminder_cadence?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academy_module_assignments_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "academy_modules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "academy_module_assignments_module_version_id_fkey"
+            columns: ["module_version_id"]
+            isOneToOne: false
+            referencedRelation: "academy_module_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      academy_module_progress: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          id: string
+          module_id: string
+          module_version_id: string | null
+          practice_results: Json | null
+          reflection_response: string | null
+          screens_viewed: string[] | null
+          started_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+          xp_earned: number | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          module_id: string
+          module_version_id?: string | null
+          practice_results?: Json | null
+          reflection_response?: string | null
+          screens_viewed?: string[] | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          xp_earned?: number | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          module_id?: string
+          module_version_id?: string | null
+          practice_results?: Json | null
+          reflection_response?: string | null
+          screens_viewed?: string[] | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          xp_earned?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academy_module_progress_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "academy_modules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "academy_module_progress_module_version_id_fkey"
+            columns: ["module_version_id"]
+            isOneToOne: false
+            referencedRelation: "academy_module_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      academy_module_rules: {
+        Row: {
+          agency_id: string | null
+          coach_user_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          learner_id: string | null
+          min_lab_games_completed: number | null
+          min_modules_completed: number | null
+          min_translator_runs: number | null
+          module_id: string
+          requirement_override: string | null
+          updated_at: string
+          visibility: string
+        }
+        Insert: {
+          agency_id?: string | null
+          coach_user_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          learner_id?: string | null
+          min_lab_games_completed?: number | null
+          min_modules_completed?: number | null
+          min_translator_runs?: number | null
+          module_id: string
+          requirement_override?: string | null
+          updated_at?: string
+          visibility?: string
+        }
+        Update: {
+          agency_id?: string | null
+          coach_user_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          learner_id?: string | null
+          min_lab_games_completed?: number | null
+          min_modules_completed?: number | null
+          min_translator_runs?: number | null
+          module_id?: string
+          requirement_override?: string | null
+          updated_at?: string
+          visibility?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academy_module_rules_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "academy_modules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      academy_module_versions: {
+        Row: {
+          content: Json
+          created_at: string
+          created_by: string | null
+          id: string
+          module_id: string
+          status: string
+          updated_at: string
+          version_num: number
+        }
+        Insert: {
+          content?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          module_id: string
+          status?: string
+          updated_at?: string
+          version_num?: number
+        }
+        Update: {
+          content?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          module_id?: string
+          status?: string
+          updated_at?: string
+          version_num?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academy_module_versions_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "academy_modules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      academy_modules: {
+        Row: {
+          agency_id: string | null
+          audience: string
+          canonical_key: string | null
+          created_at: string
+          created_by: string | null
+          est_minutes: number
+          id: string
+          scope: string
+          short_description: string | null
+          skill_tags: string[] | null
+          status: string
+          suggested_tool: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          agency_id?: string | null
+          audience?: string
+          canonical_key?: string | null
+          created_at?: string
+          created_by?: string | null
+          est_minutes?: number
+          id?: string
+          scope?: string
+          short_description?: string | null
+          skill_tags?: string[] | null
+          status?: string
+          suggested_tool?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string | null
+          audience?: string
+          canonical_key?: string | null
+          created_at?: string
+          created_by?: string | null
+          est_minutes?: number
+          id?: string
+          scope?: string
+          short_description?: string | null
+          skill_tags?: string[] | null
+          status?: string
+          suggested_tool?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      academy_path_modules: {
+        Row: {
+          created_at: string
+          id: string
+          module_id: string
+          path_id: string
+          prereq_module_id: string | null
+          requirement: string
+          sort_order: number
+          unlocks_tool: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          module_id: string
+          path_id: string
+          prereq_module_id?: string | null
+          requirement?: string
+          sort_order?: number
+          unlocks_tool?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          module_id?: string
+          path_id?: string
+          prereq_module_id?: string | null
+          requirement?: string
+          sort_order?: number
+          unlocks_tool?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "academy_path_modules_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "academy_modules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "academy_path_modules_path_id_fkey"
+            columns: ["path_id"]
+            isOneToOne: false
+            referencedRelation: "academy_paths"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "academy_path_modules_prereq_module_id_fkey"
+            columns: ["prereq_module_id"]
+            isOneToOne: false
+            referencedRelation: "academy_modules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      academy_paths: {
+        Row: {
+          agency_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          path_type: string
+          status: string
+          target_coach_id: string | null
+          target_learner_id: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          agency_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          path_type?: string
+          status?: string
+          target_coach_id?: string | null
+          target_learner_id?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          path_type?: string
+          status?: string
+          target_coach_id?: string | null
+          target_learner_id?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       app_handshake: {
         Row: {
           app_slug: string
@@ -32,6 +400,107 @@ export type Database = {
           environment_name?: string
           id?: number
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      behavior_lab_attempts: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          game_id: string
+          id: string
+          mistakes_summary: Json | null
+          score_percent: number
+          started_at: string
+          streak_count: number | null
+          user_id: string
+          xp_earned: number
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          game_id: string
+          id?: string
+          mistakes_summary?: Json | null
+          score_percent?: number
+          started_at?: string
+          streak_count?: number | null
+          user_id: string
+          xp_earned?: number
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          game_id?: string
+          id?: string
+          mistakes_summary?: Json | null
+          score_percent?: number
+          started_at?: string
+          streak_count?: number | null
+          user_id?: string
+          xp_earned?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "behavior_lab_attempts_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "behavior_lab_games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      behavior_lab_games: {
+        Row: {
+          agency_id: string | null
+          content: Json
+          created_at: string
+          created_by: string | null
+          difficulty: string
+          est_seconds: number
+          game_key: string | null
+          id: string
+          scope: string
+          short_description: string | null
+          skill_tags: string[] | null
+          stage: number
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          agency_id?: string | null
+          content?: Json
+          created_at?: string
+          created_by?: string | null
+          difficulty?: string
+          est_seconds?: number
+          game_key?: string | null
+          id?: string
+          scope?: string
+          short_description?: string | null
+          skill_tags?: string[] | null
+          stage?: number
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string | null
+          content?: Json
+          created_at?: string
+          created_by?: string | null
+          difficulty?: string
+          est_seconds?: number
+          game_key?: string | null
+          id?: string
+          scope?: string
+          short_description?: string | null
+          skill_tags?: string[] | null
+          stage?: number
+          status?: string
+          title?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -163,7 +632,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "agency_admin" | "coach"
+      app_role: "agency_admin" | "coach" | "super_admin" | "supervisor"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -291,7 +760,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["agency_admin", "coach"],
+      app_role: ["agency_admin", "coach", "super_admin", "supervisor"],
     },
   },
 } as const

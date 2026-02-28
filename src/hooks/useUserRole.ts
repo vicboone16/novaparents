@@ -1,12 +1,12 @@
 /**
  * useUserRole — Server-side role check via user_roles table.
- * Never trust client storage for authorization.
+ * Supports: super_admin, agency_admin, supervisor, coach
  */
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
-export type AppRole = 'agency_admin' | 'coach';
+export type AppRole = 'super_admin' | 'agency_admin' | 'supervisor' | 'coach';
 
 export function useUserRole() {
   const [role, setRole] = useState<AppRole | null>(null);
@@ -27,7 +27,6 @@ export function useUserRole() {
       if (data?.role) {
         setRole(data.role as AppRole);
       } else {
-        // Default: coach (parent) role
         setRole('coach');
       }
       setLoading(false);
@@ -35,5 +34,14 @@ export function useUserRole() {
     fetchRole();
   }, []);
 
-  return { role, loading, isAgencyAdmin: role === 'agency_admin' };
+  const isAdmin = role === 'super_admin' || role === 'agency_admin' || role === 'supervisor';
+
+  return {
+    role,
+    loading,
+    isAdmin,
+    isSuperAdmin: role === 'super_admin',
+    isAgencyAdmin: role === 'agency_admin',
+    isSupervisor: role === 'supervisor',
+  };
 }
