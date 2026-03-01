@@ -18,7 +18,7 @@ import { Button } from '@/components/ui/button';
 import { getPackets, submitEvidencePacket, type EvidencePacket, type PacketStatus } from '@/lib/evidence';
 import { EvidencePacketPreview } from '@/components/EvidencePacketPreview';
 import { getMyProgress } from '@/lib/academy-dal';
-import { getStreak, recordActivity, getStreakMilestone, type UserStreak } from '@/lib/streaks';
+import { getStreak, recordActivity, getStreakMilestone, checkStreakRecovery, recoverStreak, STREAK_RECOVERY_COST, type UserStreak } from '@/lib/streaks';
 import { useToast } from '@/hooks/use-toast';
 
 const ONBOARDING_KEY = 'bd_onboarding_complete';
@@ -90,6 +90,7 @@ export default function Dashboard() {
   const [dbModulesCompleted, setDbModulesCompleted] = useState(0);
   const [totalXp, setTotalXp] = useState(0);
   const [streak, setStreak] = useState<UserStreak>({ currentStreak: 0, longestStreak: 0, lastActivityDate: null });
+  const [recovering, setRecovering] = useState(false);
 
   const isFirstTime = !localStorage.getItem(ONBOARDING_KEY);
   const localLessons = getLocalLessonCount();
@@ -281,6 +282,49 @@ export default function Dashboard() {
           </div>
         </div>
       </section>
+
+      {/* Streak Recovery Banner */}
+      {(() => {
+        const recovery = checkStreakRecovery(streak, combinedXp);
+        if (!recovery.canRecover) return null;
+        return (
+          <section className="rounded-xl border border-secondary/30 bg-secondary/5 p-4 space-y-2 animate-fade-in">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">💔</span>
+              <div className="flex-1">
+                <p className="font-display font-bold text-foreground text-sm">Streak Lost!</p>
+                <p className="text-xs text-muted-foreground">
+                  You missed a day. Spend {STREAK_RECOVERY_COST} XP to restore your streak.
+                </p>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full gap-1.5"
+              disabled={recovering}
+              onClick={async () => {
+                setRecovering(true);
+                try {
+                  const updated = await recoverStreak(userId);
+                  setStreak(updated);
+                  setTotalXp(prev => prev - STREAK_RECOVERY_COST);
+                  toast({
+                    title: '🔥 Streak Restored!',
+                    description: `Your ${updated.currentStreak}-day streak is back! Keep going.`,
+                  });
+                } catch {
+                  toast({ title: 'Error', description: 'Could not recover streak.', variant: 'destructive' });
+                }
+                setRecovering(false);
+              }}
+            >
+              <Zap className="h-3.5 w-3.5" />
+              {recovering ? 'Restoring…' : `Restore Streak (−${STREAK_RECOVERY_COST} XP)`}
+            </Button>
+          </section>
+        );
+      })()}
 
       {/* Follow-up notice */}
       {followupPacket && (
