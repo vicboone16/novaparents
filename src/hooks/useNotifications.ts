@@ -12,7 +12,7 @@ export function useNotifications(enabled: boolean) {
   const scheduledRef = useRef(false);
 
   const requestPermission = useCallback(async () => {
-    if (!('Notification' in window)) return false;
+    if (typeof window === 'undefined' || !('Notification' in window)) return false;
     if (Notification.permission === 'granted') return true;
     if (Notification.permission === 'denied') return false;
     const result = await Notification.requestPermission();
@@ -20,7 +20,7 @@ export function useNotifications(enabled: boolean) {
   }, []);
 
   const sendReminder = useCallback((title: string, body: string) => {
-    if (Notification.permission !== 'granted') return;
+    if (typeof window === 'undefined' || !('Notification' in window) || Notification.permission !== 'granted') return;
     try {
       new Notification(title, {
         body,
