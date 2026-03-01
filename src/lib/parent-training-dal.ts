@@ -1,13 +1,12 @@
 /**
  * Parent Training DAL
  * ───────────────────
- * Queries NovaTrack Core tables:
- *   - public.parent_training_modules
- *   - public.parent_training_module_versions
- *   - public.parent_training_paths
- *   - public.parent_training_path_modules
- *   - public.parent_training_progress
- *   - public.parent_training_assignments
+ * Queries the Parent App's own academy schema:
+ *   - public.academy_modules
+ *   - public.academy_module_versions
+ *   - public.academy_module_progress
+ *   - public.academy_paths
+ *   - public.academy_path_modules
  */
 
 import { supabase } from '@/integrations/supabase/client';
@@ -21,6 +20,7 @@ export interface ParentModule {
   short_description: string | null;
   est_minutes: number;
   skill_tags: string[];
+  suggested_tool: string | null;
   module_version_id: string;
   version_num: number;
   content: ModuleContent;
@@ -111,26 +111,12 @@ export function getAllLocalProgress(): TrainingProgress[] {
 // ─── Modules (published, system scope) ───────────────────
 
 export async function getPublishedModules(): Promise<ParentModule[]> {
-  // Uses the exact query specified for NovaTrack Core
-  const { data, error } = await (supabase as any).rpc('get_parent_training_modules_v1').select();
-
-  // If RPC doesn't exist, fall back to direct table query
-  if (error) {
-    console.info('[ParentTraining DAL] RPC not available, using direct query');
-    return getPublishedModulesDirect();
-  }
-
-  return (data as ParentModule[]) || [];
-}
-
-async function getPublishedModulesDirect(): Promise<ParentModule[]> {
-  // Direct join query matching the exact SQL specified
+  // Fetch active system modules
   const { data: modules, error: modErr } = await (supabase as any)
-    .from('parent_training_modules')
-    .select('module_id, canonical_key, title, short_description, est_minutes, skill_tags')
+    .from('academy_modules')
+    .select('id, canonical_key, title, short_description, est_minutes, skill_tags, suggested_tool')
     .eq('status', 'active')
     .eq('scope', 'system')
-    .is('agency_id', null)
     .order('created_at', { ascending: true });
 
   if (modErr || !modules?.length) {
@@ -139,10 +125,10 @@ async function getPublishedModulesDirect(): Promise<ParentModule[]> {
   }
 
   // Fetch published versions for these modules
-  const moduleIds = modules.map((m: any) => m.module_id);
+  const moduleIds = modules.map((m: any) => m.id);
   const { data: versions, error: verErr } = await (supabase as any)
-    .from('parent_training_module_versions')
-    .select('module_id, module_version_id:id, version_num, content')
+    .from('academy_module_versions')
+    .select('id, module_id, version_num, content')
     .eq('status', 'published')
     .in('module_id', moduleIds)
     .order('version_num', { ascending: false });
@@ -151,7 +137,7 @@ async function getPublishedModulesDirect(): Promise<ParentModule[]> {
     console.warn('[ParentTraining DAL] getVersions:', verErr.message);
   }
 
-  // Build a map of module_id → latest published version
+  // Map module_id → latest published version
   const versionMap = new Map<string, any>();
   for (const v of (versions || [])) {
     if (!versionMap.has(v.module_id)) {
@@ -162,16 +148,17 @@ async function getPublishedModulesDirect(): Promise<ParentModule[]> {
   // Join modules with their published version content
   return modules
     .map((m: any) => {
-      const v = versionMap.get(m.module_id);
+      const v = versionMap.get(m.id);
       if (!v) return null;
       return {
-        module_id: m.module_id,
+        module_id: m.id,
         canonical_key: m.canonical_key,
         title: m.title,
         short_description: m.short_description,
         est_minutes: m.est_minutes,
         skill_tags: m.skill_tags || [],
-        module_version_id: v.module_version_id,
+        suggested_tool: m.suggested_tool,
+        module_version_id: v.id,
         version_num: v.version_num,
         content: v.content || { screens: [] },
       } as ParentModule;
@@ -183,13 +170,12 @@ async function getPublishedModulesDirect(): Promise<ParentModule[]> {
 
 export async function getMyTrainingProgress(userId: string): Promise<TrainingProgress[]> {
   const { data, error } = await (supabase as any)
-    .from('parent_training_progress')
+    .from('academy_module_progress')
     .select('*')
     .eq('user_id', userId);
 
   if (error) {
     console.warn('[ParentTraining DAL] getProgress:', error.message);
-    // Fall back to local
     return getAllLocalProgress().filter(p => p.user_id === userId);
   }
   return data || [];
@@ -207,7 +193,7 @@ export async function upsertTrainingProgress(
   // If agency-linked, also save to DB
   if (isLinked) {
     const { data, error } = await (supabase as any)
-      .from('parent_training_progress')
+      .from('academy_module_progress')
       .upsert(
         { ...p, updated_at: new Date().toISOString() },
         { onConflict: 'user_id,module_id' }
@@ -217,7 +203,6 @@ export async function upsertTrainingProgress(
 
     if (error) {
       console.warn('[ParentTraining DAL] upsertProgress:', error.message);
-      // Local save already happened above
       return p as TrainingProgress;
     }
     return data;
@@ -230,13 +215,13 @@ export async function upsertTrainingProgress(
 
 export async function getTrainingPaths(): Promise<TrainingPath[]> {
   const { data, error } = await (supabase as any)
-    .from('parent_training_paths')
+    .from('academy_paths')
     .select('*')
     .eq('status', 'active')
     .order('created_at', { ascending: true });
 
   if (error) {
-    console.info('[ParentTraining DAL] No paths table or empty:', error.message);
+    console.info('[ParentTraining DAL] No paths:', error.message);
     return [];
   }
   return data || [];
@@ -244,30 +229,13 @@ export async function getTrainingPaths(): Promise<TrainingPath[]> {
 
 export async function getTrainingPathModules(pathId: string): Promise<TrainingPathModule[]> {
   const { data, error } = await (supabase as any)
-    .from('parent_training_path_modules')
+    .from('academy_path_modules')
     .select('*')
     .eq('path_id', pathId)
     .order('sort_order', { ascending: true });
 
   if (error) {
     console.info('[ParentTraining DAL] No path_modules:', error.message);
-    return [];
-  }
-  return data || [];
-}
-
-// ─── Assignments ─────────────────────────────────────────
-
-export async function getMyAssignments(userId: string): Promise<TrainingAssignment[]> {
-  const { data, error } = await (supabase as any)
-    .from('parent_training_assignments')
-    .select('*')
-    .eq('user_id', userId)
-    .neq('status', 'removed')
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    console.info('[ParentTraining DAL] No assignments:', error.message);
     return [];
   }
   return data || [];
@@ -281,7 +249,7 @@ export async function syncLocalProgressToDb(userId: string): Promise<number> {
 
   for (const p of local) {
     const { error } = await (supabase as any)
-      .from('parent_training_progress')
+      .from('academy_module_progress')
       .upsert(
         { ...p, updated_at: new Date().toISOString() },
         { onConflict: 'user_id,module_id' }
