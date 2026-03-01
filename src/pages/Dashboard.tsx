@@ -2,27 +2,29 @@
  * Coach Dashboard (Home)
  * ──────────────────────
  * Why Loop: first-time → 2-card onboarding; returning → guided next step.
- * Crisis ↔ Literacy loop prompts after tool/module completion.
+ * Hero integrates progress ring with welcome message.
  */
 
 import { useEffect, useState } from 'react';
 import {
   BookOpen, PenLine, Lightbulb, ArrowRight, Heart, Sparkles,
   Package, Send, CheckCircle2, AlertTriangle, Clock, Zap, Brain,
+  Gamepad2,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getCurrentUser } from '@/lib/dal';
 import { Button } from '@/components/ui/button';
 import { getPackets, submitEvidencePacket, type EvidencePacket, type PacketStatus } from '@/lib/evidence';
 import { EvidencePacketPreview } from '@/components/EvidencePacketPreview';
+import { getMyProgress } from '@/lib/academy-dal';
 
 const ONBOARDING_KEY = 'bd_onboarding_complete';
 const GROWTH_LEVELS = [
-  { level: 1, name: 'Observer', xpNeeded: 0 },
-  { level: 2, name: 'Behavior Detective', xpNeeded: 100 },
-  { level: 3, name: 'Reinforcement Reader', xpNeeded: 250 },
-  { level: 4, name: 'Pattern Spotter', xpNeeded: 500 },
-  { level: 5, name: 'Confident Coach', xpNeeded: 1000 },
+  { level: 1, name: 'Observer', xpNeeded: 0, emoji: '👀' },
+  { level: 2, name: 'Behavior Detective', xpNeeded: 100, emoji: '🔍' },
+  { level: 3, name: 'Reinforcement Reader', xpNeeded: 250, emoji: '📖' },
+  { level: 4, name: 'Pattern Spotter', xpNeeded: 500, emoji: '🧩' },
+  { level: 5, name: 'Confident Coach', xpNeeded: 1000, emoji: '🌟' },
 ];
 
 const statusConfig: Record<PacketStatus, { label: string; cls: string; icon: React.ElementType }> = {
@@ -34,10 +36,17 @@ const statusConfig: Record<PacketStatus, { label: string; cls: string; icon: Rea
   rejected: { label: 'Rejected', cls: 'bg-destructive/10 text-destructive', icon: AlertTriangle },
 };
 
-function getXp(): number {
+function getLocalLessonCount(): number {
   try {
     const progress = JSON.parse(localStorage.getItem('bd_curriculum_progress') || '{}');
-    return Object.keys(progress).filter(k => progress[k]).length * 25;
+    return Object.keys(progress).filter(k => progress[k]).length;
+  } catch { return 0; }
+}
+
+function getLabGamesCompleted(): number {
+  try {
+    const data = JSON.parse(localStorage.getItem('bd_lab_progress') || '{}');
+    return Object.keys(data).length;
   } catch { return 0; }
 }
 
@@ -73,25 +82,44 @@ export default function Dashboard() {
   const [showPreview, setShowPreview] = useState(false);
   const navigate = useNavigate();
 
+  // Progress stats
+  const [dbModulesCompleted, setDbModulesCompleted] = useState(0);
+  const [totalXp, setTotalXp] = useState(0);
+
   const isFirstTime = !localStorage.getItem(ONBOARDING_KEY);
-  const xp = getXp();
-  const level = getCurrentLevel(xp);
-  const nextLevel = getNextLevel(xp);
+  const localLessons = getLocalLessonCount();
+  const labGames = getLabGamesCompleted();
+
+  // Combine XP sources
+  const combinedXp = totalXp + (localLessons * 25);
+  const level = getCurrentLevel(combinedXp);
+  const nextLevel = getNextLevel(combinedXp);
+  const levelProgress = nextLevel
+    ? (combinedXp - level.xpNeeded) / (nextLevel.xpNeeded - level.xpNeeded)
+    : 1;
 
   useEffect(() => {
-    getCurrentUser().then((user) => {
+    getCurrentUser().then(async (user) => {
       if (user) {
         const email = user.email || '';
         setUserName(email.split('@')[0] || 'there');
         setUserId(user.id);
         getPackets(user.id).then(setPackets);
+
+        // Load DB-backed academy progress
+        try {
+          const progress = await getMyProgress(user.id);
+          const completed = progress.filter(p => p.status === 'completed');
+          setDbModulesCompleted(completed.length);
+          setTotalXp(progress.reduce((sum, p) => sum + (p.xp_earned || 0), 0));
+        } catch { /* ignore */ }
       }
     });
   }, []);
 
   function handleStartLearning() {
     localStorage.setItem(ONBOARDING_KEY, 'true');
-    navigate('/toolkit?tab=academy');
+    navigate('/academy');
   }
 
   function handleQuickSupport() {
@@ -114,6 +142,7 @@ export default function Dashboard() {
 
   const latestPacket = packets[0] || null;
   const followupPacket = packets.find(p => p.status === 'needs_followup');
+  const totalModules = dbModulesCompleted + localLessons;
 
   // ─── First-time: 2-card onboarding ────────────────
   if (isFirstTime) {
@@ -172,15 +201,49 @@ export default function Dashboard() {
   // ─── Returning user dashboard ──────────────────────
   return (
     <div className="space-y-5">
-      {/* Welcome */}
+      {/* Welcome + Progress Hero (merged) */}
       <section className="rounded-2xl gradient-hero p-5 text-primary-foreground shadow-soft">
-        <div className="flex items-start gap-3">
-          <Heart className="h-5 w-5 mt-0.5 opacity-80 shrink-0" />
-          <div>
-            <h2 className="font-display text-lg font-bold">Welcome back, {userName}!</h2>
-            <p className="mt-1 text-primary-foreground/80 text-sm">
-              Every step you take helps your Learner thrive.
-            </p>
+        <div className="flex items-center gap-4">
+          {/* Progress ring */}
+          <div className="relative flex h-16 w-16 shrink-0 items-center justify-center">
+            <svg className="absolute inset-0 h-full w-full -rotate-90" viewBox="0 0 36 36">
+              <circle cx="18" cy="18" r="15" fill="none" stroke="currentColor" strokeWidth="2" className="opacity-20" />
+              <circle cx="18" cy="18" r="15" fill="none" stroke="currentColor" strokeWidth="2.5"
+                strokeDasharray={`${Math.min(levelProgress, 1) * 94.2} 94.2`}
+                strokeLinecap="round" />
+            </svg>
+            <div className="text-center">
+              <p className="font-display text-sm font-bold leading-none">L{level.level}</p>
+              <p className="text-[8px] opacity-80">{Math.round(levelProgress * 100)}%</p>
+            </div>
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <h2 className="font-display text-lg font-bold leading-tight">Welcome back, {userName}!</h2>
+            <p className="text-[11px] opacity-80 mt-0.5">{level.emoji} {level.name}</p>
+            {nextLevel && (
+              <p className="text-[10px] opacity-70 mt-0.5">{nextLevel.xpNeeded - combinedXp} XP to {nextLevel.name}</p>
+            )}
+          </div>
+        </div>
+
+        {/* Stats row */}
+        <div className="flex gap-3 mt-4">
+          <div className="flex-1 rounded-xl bg-primary-foreground/10 p-2.5 text-center">
+            <p className="font-display text-lg font-bold">{combinedXp}</p>
+            <p className="text-[9px] opacity-80">XP</p>
+          </div>
+          <div className="flex-1 rounded-xl bg-primary-foreground/10 p-2.5 text-center">
+            <p className="font-display text-lg font-bold">{totalModules}</p>
+            <p className="text-[9px] opacity-80">Modules</p>
+          </div>
+          <div className="flex-1 rounded-xl bg-primary-foreground/10 p-2.5 text-center">
+            <p className="font-display text-lg font-bold">{labGames}</p>
+            <p className="text-[9px] opacity-80">Lab Games</p>
+          </div>
+          <div className="flex-1 rounded-xl bg-primary-foreground/10 p-2.5 text-center">
+            <p className="font-display text-lg font-bold">{latestPacket ? (latestPacket.behaviorLogsCount + latestPacket.frequencyLogsCount + latestPacket.durationLogsCount) : 0}</p>
+            <p className="text-[9px] opacity-80">Data Logs</p>
           </div>
         </div>
       </section>
@@ -207,10 +270,10 @@ export default function Dashboard() {
         </section>
       )}
 
-      {/* Your Next Step + Quick Support (2-card always) */}
+      {/* Your Next Step + Quick Support */}
       <div className="grid gap-3 sm:grid-cols-2">
         <Link
-          to="/toolkit?tab=academy"
+          to="/academy"
           className="rounded-xl border border-primary/20 bg-card p-4 shadow-soft hover:shadow-md transition-all space-y-2"
         >
           <div className="flex items-center gap-2">
@@ -241,38 +304,6 @@ export default function Dashboard() {
           </div>
         </Link>
       </div>
-
-      {/* Your Growth */}
-      <section className="rounded-xl border border-border bg-card p-4 shadow-card space-y-3">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-primary" />
-          <span className="text-xs font-semibold uppercase tracking-wide text-primary">📊 Your Growth</span>
-        </div>
-        <div className="flex items-center gap-4">
-          <div className="flex-1">
-            <p className="font-display font-bold text-foreground">
-              Level {level.level} — {level.name}
-            </p>
-            {nextLevel && (
-              <p className="text-[10px] text-muted-foreground mt-0.5">
-                {nextLevel.xpNeeded - xp} XP to {nextLevel.name}
-              </p>
-            )}
-          </div>
-          <div className="text-right">
-            <p className="font-display text-lg font-bold text-foreground">{xp}</p>
-            <p className="text-[10px] text-muted-foreground">XP</p>
-          </div>
-        </div>
-        {nextLevel && (
-          <div className="h-2 rounded-full bg-border overflow-hidden">
-            <div
-              className="h-full rounded-full bg-primary transition-all duration-500"
-              style={{ width: `${((xp - level.xpNeeded) / (nextLevel.xpNeeded - level.xpNeeded)) * 100}%` }}
-            />
-          </div>
-        )}
-      </section>
 
       {/* Recent Insight */}
       <section className="rounded-xl border border-primary/20 bg-card p-4 shadow-soft">
@@ -350,7 +381,7 @@ export default function Dashboard() {
         <div className="grid grid-cols-3 gap-3">
           {[
             { to: '/log', icon: PenLine, label: 'Log Data', color: 'bg-secondary/10 text-secondary' },
-            { to: '/toolkit', icon: BookOpen, label: 'Continue Learning', color: 'bg-primary/10 text-primary' },
+            { to: '/academy', icon: BookOpen, label: 'Continue Learning', color: 'bg-primary/10 text-primary' },
             { to: '/toolkit?tab=reinforcing', icon: Lightbulb, label: 'Is This Reinforcing?', color: 'bg-accent/10 text-accent' },
           ].map((action, i) => (
             <Link

@@ -1,12 +1,12 @@
 /**
  * Nova Academy™ — DB-Backed Coach View
  * ─────────────────────────────────────
- * Fetches modules, paths, progress, assignments from the database.
- * No mock/local data.
+ * Shows the Learn modules (CurriculumPage) as the primary view,
+ * plus DB-backed paths, assignments, and the module content player.
  */
 
 import { useState, useEffect } from 'react';
-import { BookOpen, Flame, Star, ChevronRight, CheckCircle2, Lock, Play, ArrowLeft, Sparkles, GraduationCap } from 'lucide-react';
+import { BookOpen, Star, ChevronRight, CheckCircle2, Lock, Play, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getCurrentUser } from '@/lib/dal';
 import {
@@ -16,17 +16,7 @@ import {
 import { ModuleContentPlayer } from '@/components/ModuleContentPlayer';
 import CurriculumPage from './CurriculumPage';
 
-type AcademyTab = 'academy' | 'learn';
-const GROWTH_LEVELS = [
-  { level: 1, name: 'Observer', xp: 0, emoji: '👀' },
-  { level: 2, name: 'Behavior Detective', xp: 100, emoji: '🔍' },
-  { level: 3, name: 'Reinforcement Reader', xp: 250, emoji: '📖' },
-  { level: 4, name: 'Pattern Spotter', xp: 500, emoji: '🧩' },
-  { level: 5, name: 'Confident Coach', xp: 1000, emoji: '🌟' },
-];
-
 export default function NovaAcademyPage() {
-  const [academyTab, setAcademyTab] = useState<AcademyTab>('academy');
   const [userId, setUserId] = useState('');
   const [modules, setModules] = useState<AcademyModule[]>([]);
   const [paths, setPaths] = useState<AcademyPath[]>([]);
@@ -59,7 +49,6 @@ export default function NovaAcademyPage() {
     setProgress(prog);
     setAssignments(assigns.filter(a => a.status !== 'removed'));
 
-    // Load path modules for each path
     const pmMap: Record<string, PathModule[]> = {};
     for (const path of pts) {
       pmMap[path.id] = await getPathModules(path.id);
@@ -70,32 +59,9 @@ export default function NovaAcademyPage() {
 
   // Computed values
   const progressMap = new Map(progress.map(p => [p.module_id, p]));
-  const totalXp = progress.reduce((sum, p) => sum + (p.xp_earned || 0), 0);
-  const completedCount = progress.filter(p => p.status === 'completed').length;
-  const currentLevel = [...GROWTH_LEVELS].reverse().find(l => totalXp >= l.xp) || GROWTH_LEVELS[0];
-  const nextLevel = GROWTH_LEVELS.find(l => l.xp > totalXp);
-  const levelProgress = nextLevel ? (totalXp - currentLevel.xp) / (nextLevel.xp - currentLevel.xp) : 1;
-
-  // Get assigned module IDs
   const assignedModuleIds = new Set(assignments.map(a => a.module_id));
 
-  // Find next recommended module
-  function getNextModule(): { module: AcademyModule; pathTitle: string } | null {
-    for (const path of paths) {
-      const pms = pathModules[path.id] || [];
-      for (const pm of pms.sort((a, b) => a.sort_order - b.sort_order)) {
-        const mod = modules.find(m => m.id === pm.module_id);
-        const prog = progressMap.get(pm.module_id);
-        if (mod && (!prog || prog.status !== 'completed')) {
-          return { module: mod, pathTitle: path.title };
-        }
-      }
-    }
-    return null;
-  }
-
   async function openModule(mod: AcademyModule) {
-    // Find assigned version or latest published
     const assignment = assignments.find(a => a.module_id === mod.id);
     const versions = await getVersions(mod.id);
     let version: ModuleVersion | undefined;
@@ -108,7 +74,6 @@ export default function NovaAcademyPage() {
     }
 
     if (!version || !version.content || Object.keys(version.content).length === 0) {
-      // No content available — show placeholder
       setActiveModule(mod);
       setActiveVersionContent(null);
       setActiveVersionId('');
@@ -190,7 +155,6 @@ export default function NovaAcademyPage() {
             const done = prog?.status === 'completed';
             const inProgress = prog?.status === 'in_progress';
             const pm = pms[i];
-            // Check prereq
             const prereqMet = !pm.prereq_module_id || progressMap.get(pm.prereq_module_id)?.status === 'completed';
             const prevDone = i === 0 || progressMap.get(pathMods[i - 1].id)?.status === 'completed';
             const locked = !done && !inProgress && !prevDone && !prereqMet;
@@ -234,7 +198,7 @@ export default function NovaAcademyPage() {
     );
   }
 
-  // ─── Academy home ──────────────────────────────────
+  // ─── Loading ───────────────────────────────────────
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -243,118 +207,15 @@ export default function NovaAcademyPage() {
     );
   }
 
-  const nextMod = getNextModule();
+  // ─── Academy home — modules + paths ────────────────
   const assignedMods = modules.filter(m => assignedModuleIds.has(m.id) && progressMap.get(m.id)?.status !== 'completed');
-  const completedMods = modules.filter(m => progressMap.get(m.id)?.status === 'completed');
-
-  const academyTabs: { key: AcademyTab; label: string; icon: React.ElementType }[] = [
-    { key: 'academy', label: 'Academy', icon: GraduationCap },
-    { key: 'learn', label: 'Learn', icon: BookOpen },
-  ];
-
-  // If on Learn tab, render CurriculumPage
-  if (academyTab === 'learn') {
-    return (
-      <div className="space-y-4 animate-fade-in">
-        <div className="text-center space-y-1">
-          <h2 className="font-display text-2xl font-bold text-foreground">Nova Academy™</h2>
-          <p className="text-sm text-muted-foreground">Small skills. Big shifts.</p>
-        </div>
-        <div className="flex gap-1.5 overflow-x-auto pb-1">
-          {academyTabs.map(t => (
-            <button
-              key={t.key}
-              onClick={() => setAcademyTab(t.key)}
-              className={`flex items-center gap-1 whitespace-nowrap rounded-xl px-3 py-2 text-xs font-semibold transition-all ${
-                academyTab === t.key
-                  ? 'bg-primary text-primary-foreground shadow-soft'
-                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
-              }`}
-            >
-              <t.icon className="h-3.5 w-3.5" /> {t.label}
-            </button>
-          ))}
-        </div>
-        <CurriculumPage />
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-5 animate-fade-in">
-      <div className="text-center space-y-1">
+      <div>
         <h2 className="font-display text-2xl font-bold text-foreground">Nova Academy™</h2>
-        <p className="text-sm text-muted-foreground">Small skills. Big shifts.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Small skills. Big shifts.</p>
       </div>
-
-      {/* Tab switcher */}
-      <div className="flex gap-1.5 overflow-x-auto pb-1">
-        {academyTabs.map(t => (
-          <button
-            key={t.key}
-            onClick={() => setAcademyTab(t.key)}
-            className={`flex items-center gap-1 whitespace-nowrap rounded-xl px-3 py-2 text-xs font-semibold transition-all ${
-              academyTab === t.key
-                ? 'bg-primary text-primary-foreground shadow-soft'
-                : 'bg-muted text-muted-foreground hover:bg-muted/80'
-            }`}
-          >
-            <t.icon className="h-3.5 w-3.5" /> {t.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Progress ring + stats */}
-      <div className="rounded-2xl gradient-hero p-5 text-primary-foreground">
-        <div className="flex items-center gap-5">
-          <div className="relative flex h-20 w-20 shrink-0 items-center justify-center">
-            <svg className="absolute inset-0 h-full w-full -rotate-90" viewBox="0 0 36 36">
-              <circle cx="18" cy="18" r="15" fill="none" stroke="currentColor" strokeWidth="2" className="opacity-20" />
-              <circle cx="18" cy="18" r="15" fill="none" stroke="currentColor" strokeWidth="2.5"
-                strokeDasharray={`${Math.min(levelProgress, 1) * 94.2} 94.2`}
-                strokeLinecap="round" />
-            </svg>
-            <div className="text-center">
-              <p className="font-display text-lg font-bold leading-none">L{currentLevel.level}</p>
-              <p className="text-[9px] opacity-80">{Math.round(levelProgress * 100)}%</p>
-            </div>
-          </div>
-          <div className="flex-1 space-y-2">
-            <p className="text-sm font-semibold">{currentLevel.emoji} {currentLevel.name}</p>
-            <div className="flex gap-4">
-              <div>
-                <p className="font-display text-xl font-bold">{totalXp}</p>
-                <p className="text-[10px] opacity-80">XP</p>
-              </div>
-              <div>
-                <p className="font-display text-xl font-bold">{completedCount}</p>
-                <p className="text-[10px] opacity-80">Done</p>
-              </div>
-            </div>
-            {nextLevel && (
-              <p className="text-[10px] opacity-70">{nextLevel.xp - totalXp} XP to {nextLevel.name}</p>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Your Next Step */}
-      {nextMod && (
-        <button
-          onClick={() => openModule(nextMod.module)}
-          className="w-full rounded-xl border border-primary/20 bg-card p-4 shadow-soft flex items-center gap-3 hover:bg-primary/5 transition-all text-left"
-        >
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-            <Play className="h-5 w-5 text-primary" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-[10px] text-primary font-semibold uppercase">Your Next Step</p>
-            <p className="text-sm font-semibold text-foreground truncate">{nextMod.module.title}</p>
-            <p className="text-[10px] text-muted-foreground">{nextMod.pathTitle} · {nextMod.module.est_minutes} min</p>
-          </div>
-          <ChevronRight className="h-4 w-4 text-primary shrink-0" />
-        </button>
-      )}
 
       {/* Assigned to You */}
       {assignedMods.length > 0 && (
@@ -386,6 +247,9 @@ export default function NovaAcademyPage() {
           </div>
         </div>
       )}
+
+      {/* Learn Modules (CurriculumPage) */}
+      <CurriculumPage />
 
       {/* Learning Paths */}
       {paths.length > 0 && (
@@ -422,30 +286,6 @@ export default function NovaAcademyPage() {
               );
             })}
           </div>
-        </div>
-      )}
-
-      {/* Completed */}
-      {completedMods.length > 0 && (
-        <div>
-          <h3 className="font-display text-sm font-bold text-foreground mb-2">Completed</h3>
-          <div className="space-y-1.5">
-            {completedMods.map(mod => (
-              <div key={mod.id} className="flex items-center gap-3 rounded-xl border border-success/20 bg-success/5 p-3">
-                <CheckCircle2 className="h-4 w-4 text-success shrink-0" />
-                <p className="text-sm text-foreground flex-1">{mod.title}</p>
-                <span className="text-[10px] text-success font-semibold">+{10 + mod.est_minutes} XP</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Empty state */}
-      {modules.length === 0 && (
-        <div className="rounded-xl border border-border bg-card p-8 text-center">
-          <BookOpen className="h-10 w-10 text-muted-foreground mx-auto mb-3 opacity-50" />
-          <p className="text-sm text-muted-foreground">Modules will appear here once your support team sets up your learning path.</p>
         </div>
       )}
     </div>
