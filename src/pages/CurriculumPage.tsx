@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { recordActivity } from '@/lib/streaks';
 import { BookOpen, CheckCircle2, Lock, ArrowLeft, ArrowRight, Sparkles, Clock, MessageSquare, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -210,6 +211,7 @@ export default function CurriculumPage() {
     recordLessonComplete(viewing.moduleId, viewing.lessonIdx);
     logLessonCompleteEvent(userId, viewing.moduleId, viewing.lessonIdx);
     evaluateLessonCompletion(userId, getSessionId() || '', viewing.moduleId, viewing.lessonIdx);
+    recordActivity(userId).catch(() => {});
     setProgress(p => ({ ...p, [`${viewing.moduleId}-${viewing.lessonIdx}`]: true }));
     setCompletionCheck(null);
   }

@@ -10,6 +10,7 @@ import { ArrowLeft, ArrowRight, CheckCircle2, BookOpen, AlertTriangle, HelpCircl
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { upsertProgress, type ModuleProgress } from '@/lib/academy-dal';
+import { recordActivity } from '@/lib/streaks';
 
 interface Screen {
   key: string;
@@ -124,6 +125,8 @@ export function ModuleContentPlayer({
       practice_results: practiceResults,
       screens_viewed: screens.map(s => s.key),
     });
+    // Record streak activity
+    recordActivity(userId).catch(() => {});
     setSaving(false);
     onComplete();
   }
