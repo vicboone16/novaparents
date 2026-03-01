@@ -3,7 +3,7 @@
  * Daily Drills · Skill Packs · Challenge Mode · Your Progress
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Gamepad2, Flame, Play, ArrowRight, CheckCircle2, Lock, Zap, Timer } from 'lucide-react';
 import { LAB_GAMES, SKILL_PACKS, GROWTH_LEVELS, DAILY_DRILL_POOL, MASTERY_SKILLS, getGrowthLevel, getNextLevel } from '@/lib/lab';
 import {
@@ -11,29 +11,77 @@ import {
   getUniqueGamesCompleted, getAvgScore, getStreakDaysWithin, getRecentGameIds,
   getMastery, hasActiveStreak,
 } from '@/lib/lab/lab-store';
-import type { LabGameConfig } from '@/lib/lab/lab-types';
+import type { LabGameConfig, SkillPackDef } from '@/lib/lab/lab-types';
 import LabGameEngine from '@/components/lab/LabGameEngine';
+import SkillPackDetail from '@/components/lab/SkillPackDetail';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { supabase } from '@/integrations/supabase/client';
+
+// ─── Stage 2 Unlock: check Academy Module 1 + Translator runs ───
+function useStage2AcademyCheck(): { academyModule1Done: boolean; translatorRuns: number } {
+  const [academyModule1Done, setAcademyModule1Done] = useState(false);
+  const [translatorRuns, setTranslatorRuns] = useState(0);
+
+  useEffect(() => {
+    // Check localStorage for translator run count
+    try {
+      const runs = parseInt(localStorage.getItem('bd_translator_runs') || '0', 10);
+      setTranslatorRuns(runs);
+    } catch { /* ignore */ }
+
+    // Check Academy Module 1 completion via Supabase
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        // Find the module with canonical_key = 'foundations_behavior_job'
+        const { data: modules } = await supabase
+          .from('academy_modules')
+          .select('id')
+          .eq('canonical_key', 'foundations_behavior_job')
+          .limit(1);
+
+        if (!modules || modules.length === 0) return;
+
+        const { data: progress } = await supabase
+          .from('academy_module_progress')
+          .select('status')
+          .eq('user_id', user.id)
+          .eq('module_id', modules[0].id)
+          .eq('status', 'completed')
+          .limit(1);
+
+        if (progress && progress.length > 0) {
+          setAcademyModule1Done(true);
+        }
+      } catch { /* ignore - stage 2 stays locked */ }
+    })();
+  }, []);
+
+  return { academyModule1Done, translatorRuns };
+}
 
 // ─── Stage Gating ───────────────────────
 function useUnlockState() {
   const attempts = getLocalAttempts();
   const uniqueGames = getUniqueGamesCompleted();
+  const { academyModule1Done, translatorRuns } = useStage2AcademyCheck();
 
-  // Stage 2: 3+ games completed + 1 translator run (we check games only for now)
-  // OR academy module 1 completed (checked via localStorage flag)
-  const stage2 = uniqueGames >= 3;
+  // Stage 2: Academy Module 1 completed OR (3+ games + 1 translator run)
+  const stage2 = academyModule1Done || (uniqueGames >= 3 && translatorRuns >= 1);
 
   // Stage 3: 5 streak days within 10 days + 15 unique games + avg 70%+ over 8+ attempts
   const streakWithin = getStreakDaysWithin(10);
   const avgScore = getAvgScore(8);
   const stage3 = streakWithin >= 5 && uniqueGames >= 15 && avgScore >= 70;
 
-  return { stage2, stage3, uniqueGames, streakWithin, avgScore };
+  return { stage2, stage3, uniqueGames, streakWithin, avgScore, academyModule1Done, translatorRuns };
 }
 
 export default function BehaviorLabPage() {
   const [activeGame, setActiveGame] = useState<LabGameConfig | null>(null);
+  const [activePack, setActivePack] = useState<SkillPackDef | null>(null);
   const [showUnlockSheet, setShowUnlockSheet] = useState<'stage2' | 'stage3' | null>(null);
   const unlocks = useUnlockState();
 
@@ -54,7 +102,6 @@ export default function BehaviorLabPage() {
       .filter(Boolean)
       .filter(g => !recentIds.includes(g.id));
 
-    // Sort by lowest mastery first, then deterministic hash
     const sorted = [...pool].sort((a, b) => {
       const ma = Math.max(...a.skill_tags.map(t => mastery[t] || 0), 0);
       const mb = Math.max(...b.skill_tags.map(t => mastery[t] || 0), 0);
@@ -62,7 +109,6 @@ export default function BehaviorLabPage() {
       return hashStr(a.id + today + seed) - hashStr(b.id + today + seed);
     });
 
-    // If not enough after filtering recent, backfill from full pool
     if (sorted.length < 3) {
       const full = DAILY_DRILL_POOL.map(id => LAB_GAMES.find(g => g.id === id)!).filter(Boolean);
       const extra = full.filter(g => !sorted.find(s => s.id === g.id));
@@ -86,8 +132,26 @@ export default function BehaviorLabPage() {
     return (
       <LabGameEngine
         game={activeGame}
-        onBack={() => setActiveGame(null)}
+        onBack={() => {
+          setActiveGame(null);
+          // If came from a pack, go back to pack view (activePack stays set)
+        }}
         onNext={handleNext}
+      />
+    );
+  }
+
+  // ─── Skill Pack Detail ────────────────
+  if (activePack) {
+    const locked = (activePack.locked_until_stage === 2 && !unlocks.stage2) ||
+      (activePack.locked_until_stage === 3 && !unlocks.stage3);
+    return (
+      <SkillPackDetail
+        pack={activePack}
+        locked={locked}
+        onPlay={(game) => setActiveGame(game)}
+        onBack={() => setActivePack(null)}
+        onShowUnlock={() => setShowUnlockSheet(activePack.locked_until_stage === 3 ? 'stage3' : 'stage2')}
       />
     );
   }
@@ -165,8 +229,8 @@ export default function BehaviorLabPage() {
                 onClick={() => {
                   if (locked) {
                     setShowUnlockSheet(pack.locked_until_stage === 3 ? 'stage3' : 'stage2');
-                  } else if (packGames.length > 0) {
-                    setActiveGame(packGames[0]);
+                  } else {
+                    setActivePack(pack);
                   }
                 }}
                 className={`w-full flex items-center gap-3 rounded-xl border p-3.5 text-left transition-all ${
@@ -226,7 +290,6 @@ export default function BehaviorLabPage() {
 
       {/* ─── Your Progress ───────────────── */}
       <Section title="Your Progress" subtitle="Growth path + skill mastery">
-        {/* Growth Path */}
         <div className="rounded-xl border border-border bg-card p-4 shadow-card space-y-2.5 mb-3">
           {GROWTH_LEVELS.map((gl) => {
             const isCurrent = gl.level === level.level;
@@ -246,7 +309,6 @@ export default function BehaviorLabPage() {
           })}
         </div>
 
-        {/* Mastery Bars */}
         <div className="rounded-xl border border-border bg-card p-4 shadow-card space-y-2">
           <p className="text-xs font-semibold text-foreground mb-1">Skill Mastery</p>
           {MASTERY_SKILLS.map(skill => {
@@ -280,8 +342,11 @@ export default function BehaviorLabPage() {
           </DialogHeader>
           {showUnlockSheet === 'stage2' && (
             <div className="space-y-3 text-sm text-muted-foreground">
-              <p>Complete <strong>3 games</strong> to unlock Skill Building drills.</p>
+              <p>Unlock Skill Building drills by completing <strong>Nova Academy Module 1</strong>, or by completing <strong>3 games + 1 Translator run</strong>.</p>
+              <UnlockProgress label="Academy Module 1" current={unlocks.academyModule1Done ? 1 : 0} target={1} />
+              <p className="text-[10px] text-center text-muted-foreground">— or —</p>
               <UnlockProgress label="Games completed" current={unlocks.uniqueGames} target={3} />
+              <UnlockProgress label="Translator runs" current={unlocks.translatorRuns} target={1} />
             </div>
           )}
           {showUnlockSheet === 'stage3' && (
