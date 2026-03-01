@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getCurrentUser } from '@/lib/dal';
+import { getDisplayName } from '@/lib/profile-dal';
 import { Button } from '@/components/ui/button';
 import { getPackets, submitEvidencePacket, type EvidencePacket, type PacketStatus } from '@/lib/evidence';
 import { EvidencePacketPreview } from '@/components/EvidencePacketPreview';
@@ -106,7 +107,8 @@ export default function Dashboard() {
     getCurrentUser().then(async (user) => {
       if (user) {
         const email = user.email || '';
-        setUserName(email.split('@')[0] || 'there');
+        const name = await getDisplayName(user.id);
+        setUserName(name || email.split('@')[0] || 'there');
         setUserId(user.id);
         getPackets(user.id).then(setPackets);
 
@@ -253,8 +255,13 @@ export default function Dashboard() {
         {/* Stats row */}
         <div className="flex gap-2 mt-4">
           <div className="flex-1 rounded-xl bg-primary-foreground/10 p-2.5 text-center">
-            <p className="font-display text-lg font-bold">🔥 {streak.currentStreak}</p>
+            <p className="font-display text-lg font-bold">
+              <span className={streak.currentStreak > 0 ? 'animate-flame' : ''}>🔥</span> {streak.currentStreak}
+            </p>
             <p className="text-[9px] opacity-80">Day Streak</p>
+            {streak.longestStreak > 0 && (
+              <p className="text-[8px] opacity-60">Best: {streak.longestStreak}</p>
+            )}
           </div>
           <div className="flex-1 rounded-xl bg-primary-foreground/10 p-2.5 text-center">
             <p className="font-display text-lg font-bold">{combinedXp}</p>
