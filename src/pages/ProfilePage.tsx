@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { getCurrentUser, signOut, checkHandshake, getMaskedBackendUrl, getMyClients, type ClientSummary } from '@/lib/dal';
-import { User, Bell, Wrench, LogOut, CheckCircle2, XCircle, Copy, Star, Pencil } from 'lucide-react';
+import { User, Bell, Wrench, LogOut, CheckCircle2, XCircle, Star, Pencil, Ticket, Link2, Copy } from 'lucide-react';
 import { getMyProgress, type ModuleProgress } from '@/lib/academy-dal';
 import { getMyAttempts } from '@/lib/behavior-lab-dal';
 import { getDisplayName, updateDisplayName } from '@/lib/profile-dal';
+import { getMyAgencyAccess, type AgencyAccess } from '@/lib/invite-dal';
+import { RedeemCodeForm } from '@/components/RedeemCodeForm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -21,6 +23,8 @@ export default function ProfilePage() {
   }>({ appSlug: null, supabaseUrl: '', lastPing: null });
   const [showDiag, setShowDiag] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [agencyAccess, setAgencyAccess] = useState<AgencyAccess[]>([]);
+  const [showRedeem, setShowRedeem] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState('');
@@ -57,6 +61,7 @@ export default function ProfilePage() {
       }
     });
     getMyClients().then(setClients);
+    getMyAgencyAccess().then(setAgencyAccess);
   }, []);
 
   useEffect(() => {
@@ -189,15 +194,45 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Invite Code */}
-      <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-2">
-        <p className="text-xs font-semibold text-primary uppercase tracking-wide">Your Invite Code</p>
-        <div className="flex items-center gap-2">
-          <code className="flex-1 rounded-lg bg-card border border-border px-3 py-2 text-sm font-mono text-foreground">{inviteCode}</code>
-          <Button size="sm" variant="outline" onClick={copyInvite} className="gap-1">
-            <Copy className="h-3.5 w-3.5" /> {copied ? 'Copied!' : 'Copy'}
-          </Button>
+      {/* Link to Agency / Redeem Code */}
+      <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Link2 className="h-4 w-4 text-primary" />
+            <p className="text-xs font-semibold text-primary uppercase tracking-wide">Agency Link</p>
+          </div>
+          {!showRedeem && (
+            <Button size="sm" variant="outline" onClick={() => setShowRedeem(true)} className="gap-1 text-xs">
+              <Ticket className="h-3.5 w-3.5" /> Redeem Code
+            </Button>
+          )}
         </div>
+
+        {agencyAccess.length > 0 ? (
+          <div className="space-y-2">
+            {agencyAccess.map(a => (
+              <div key={a.id} className="flex items-center gap-2 text-sm text-foreground rounded-lg bg-card border border-border px-3 py-2">
+                <CheckCircle2 className="h-4 w-4 text-success shrink-0" />
+                <span className="font-mono text-xs">{a.agency_id.slice(0, 8)}…</span>
+                <span className="text-xs text-muted-foreground ml-auto">{a.role}</span>
+              </div>
+            ))}
+          </div>
+        ) : !showRedeem ? (
+          <p className="text-xs text-muted-foreground">No agency linked yet. Redeem a code to connect.</p>
+        ) : null}
+
+        {showRedeem && (
+          <RedeemCodeForm
+            redeemedFrom="settings"
+            onCancel={() => setShowRedeem(false)}
+            onSuccess={() => {
+              setShowRedeem(false);
+              getMyAgencyAccess().then(setAgencyAccess);
+            }}
+            compact
+          />
+        )}
       </div>
 
       {/* My Learners */}
