@@ -188,7 +188,7 @@ export function ReinforcementChecker() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Switch checked={saveToPacket} onCheckedChange={setSaveToPacket} />
-            <span className="text-xs text-muted-foreground">Save to Evidence Packet</span>
+            <span className="text-xs text-muted-foreground">Save to Weekly Snapshot</span>
           </div>
           <div className="flex gap-2">
             {result && (

@@ -1,7 +1,7 @@
 /**
  * Reflect With Me™
  * ────────────────
- * Post-session guided reflection. Saves to Evidence Packet.
+ * Post-session guided reflection. Saves to Weekly Snapshot.
  */
 
 import { useState, useEffect } from 'react';
@@ -38,7 +38,7 @@ export function ReflectWithMeTool() {
     history.unshift(reflection);
     saveLocal('bd_reflections', history.slice(0, 100));
 
-    // Log to engagement for Evidence Packet
+    // Log to engagement for Weekly Snapshot
     if (userId) {
       logEvent(userId, 'reflection_submitted', {
         reflectionId: reflection.id,
@@ -63,7 +63,7 @@ export function ReflectWithMeTool() {
           <BookOpen className="h-4 w-4 text-secondary" />
           <h4 className="font-display font-bold text-foreground text-sm">Reflect With Me™</h4>
         </div>
-        <p className="text-[10px] text-muted-foreground">Take a moment to reflect. Your insights are saved to your Evidence Packet.</p>
+        <p className="text-[10px] text-muted-foreground">Take a moment to reflect. Your insights are saved to your Weekly Snapshot.</p>
       </div>
 
       {saved ? (
