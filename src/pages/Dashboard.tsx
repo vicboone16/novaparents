@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { getPackets, submitEvidencePacket, type EvidencePacket, type PacketStatus } from '@/lib/evidence';
 import { EvidencePacketPreview } from '@/components/EvidencePacketPreview';
 import { getMyProgress } from '@/lib/academy-dal';
+import { getStreak, recordActivity, type UserStreak } from '@/lib/streaks';
 
 const ONBOARDING_KEY = 'bd_onboarding_complete';
 const GROWTH_LEVELS = [
@@ -85,6 +86,7 @@ export default function Dashboard() {
   // Progress stats
   const [dbModulesCompleted, setDbModulesCompleted] = useState(0);
   const [totalXp, setTotalXp] = useState(0);
+  const [streak, setStreak] = useState<UserStreak>({ currentStreak: 0, longestStreak: 0, lastActivityDate: null });
 
   const isFirstTime = !localStorage.getItem(ONBOARDING_KEY);
   const localLessons = getLocalLessonCount();
@@ -112,6 +114,18 @@ export default function Dashboard() {
           const completed = progress.filter(p => p.status === 'completed');
           setDbModulesCompleted(completed.length);
           setTotalXp(progress.reduce((sum, p) => sum + (p.xp_earned || 0), 0));
+        } catch { /* ignore */ }
+
+        // Load & record streak (visiting home with prior activity counts)
+        try {
+          const s = await getStreak(user.id);
+          setStreak(s);
+          // Record activity for today if they have any meaningful data
+          const hasActivity = localLessons > 0 || labGames > 0;
+          if (hasActivity) {
+            const updated = await recordActivity(user.id);
+            setStreak(updated);
+          }
         } catch { /* ignore */ }
       }
     });
@@ -228,7 +242,11 @@ export default function Dashboard() {
         </div>
 
         {/* Stats row */}
-        <div className="flex gap-3 mt-4">
+        <div className="flex gap-2 mt-4">
+          <div className="flex-1 rounded-xl bg-primary-foreground/10 p-2.5 text-center">
+            <p className="font-display text-lg font-bold">🔥 {streak.currentStreak}</p>
+            <p className="text-[9px] opacity-80">Day Streak</p>
+          </div>
           <div className="flex-1 rounded-xl bg-primary-foreground/10 p-2.5 text-center">
             <p className="font-display text-lg font-bold">{combinedXp}</p>
             <p className="text-[9px] opacity-80">XP</p>
@@ -239,11 +257,11 @@ export default function Dashboard() {
           </div>
           <div className="flex-1 rounded-xl bg-primary-foreground/10 p-2.5 text-center">
             <p className="font-display text-lg font-bold">{labGames}</p>
-            <p className="text-[9px] opacity-80">Lab Games</p>
+            <p className="text-[9px] opacity-80">Lab</p>
           </div>
           <div className="flex-1 rounded-xl bg-primary-foreground/10 p-2.5 text-center">
             <p className="font-display text-lg font-bold">{latestPacket ? (latestPacket.behaviorLogsCount + latestPacket.frequencyLogsCount + latestPacket.durationLogsCount) : 0}</p>
-            <p className="text-[9px] opacity-80">Data Logs</p>
+            <p className="text-[9px] opacity-80">Logs</p>
           </div>
         </div>
       </section>
