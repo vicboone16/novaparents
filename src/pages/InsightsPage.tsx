@@ -1,63 +1,74 @@
 /**
  * My Insights Page
  * ────────────────
- * Calm, Apple Fitness-inspired view of weekly snapshots, trends, pattern notes, and exports.
+ * Backend-powered list of Weekly Snapshots from public.weekly_snapshots view.
  */
 
 import { useState, useEffect } from 'react';
 import {
-  BarChart3, Plus, TrendingUp, TrendingDown, Minus, Brain, Sparkles,
-  FileText, Download, Link2,
+  BarChart3, Plus, TrendingUp, Brain, Sparkles,
+  FileText, Download, Link2, Loader2, User,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { getCurrentUser } from '@/lib/dal';
 import { Button } from '@/components/ui/button';
 import {
-  getSnapshotsForUser,
+  fetchSnapshots,
   computeTrends,
   generatePatternNotes,
   checkAgencyLink,
-  toDisplayStatus,
-  FUNCTION_OPTIONS,
-  TRIGGER_OPTIONS,
+  getStatusDisplay,
   type WeeklySnapshot,
-  type SnapshotStatus,
   type AgencyLinkInfo,
 } from '@/lib/snapshots';
-
-const statusConfig: Record<SnapshotStatus, { label: string; cls: string }> = {
-  saved: { label: 'Saved', cls: 'bg-muted text-muted-foreground' },
-  pending_review: { label: 'Pending Review', cls: 'bg-warning/10 text-warning' },
-  reviewed: { label: 'Reviewed', cls: 'bg-success/10 text-success' },
-  returned: { label: 'Returned', cls: 'bg-secondary/10 text-secondary' },
-};
+import { supabase } from '@/integrations/supabase/client';
 
 export default function InsightsPage() {
-  const [userId, setUserId] = useState('');
   const [snapshots, setSnapshots] = useState<WeeklySnapshot[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedSnapshot, setSelectedSnapshot] = useState<WeeklySnapshot | null>(null);
   const [agencyLink, setAgencyLink] = useState<AgencyLinkInfo>({ isLinked: false });
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    getCurrentUser().then(async u => {
-      if (u) {
-        setUserId(u.id);
-        setSnapshots(getSnapshotsForUser(u.id));
-        const link = await checkAgencyLink();
+    loadData();
+  }, []);
+
+  async function loadData() {
+    setLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setCurrentUserId(user.id);
+        const [snaps, link] = await Promise.all([
+          fetchSnapshots(),
+          checkAgencyLink(),
+        ]);
+        setSnapshots(snaps);
         setAgencyLink(link);
       }
-    });
-  }, []);
+    } catch {
+      // handled gracefully
+    }
+    setLoading(false);
+  }
 
   const trends = computeTrends(snapshots);
   const patternNotes = generatePatternNotes(snapshots);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="font-display text-2xl font-bold text-foreground">My Insights</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Your weekly snapshots and trends.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Your weekly snapshots and progress.</p>
         </div>
         <Link to="/insights/new">
           <Button size="sm" className="gap-1.5">
@@ -77,7 +88,7 @@ export default function InsightsPage() {
             <BarChart3 className="h-10 w-10 text-muted-foreground/40 mx-auto" />
             <p className="text-sm text-muted-foreground">No snapshots yet.</p>
             <p className="text-xs text-muted-foreground/70">
-              Create your first Weekly Snapshot to start tracking patterns.
+              Create your first Weekly Snapshot to start tracking.
             </p>
             <Link to="/insights/new">
               <Button size="sm" className="gap-1.5 mt-2">
@@ -88,8 +99,8 @@ export default function InsightsPage() {
         ) : (
           <div className="space-y-2">
             {snapshots.slice(0, 12).map(snap => {
-              const displayStatus = toDisplayStatus(snap.statusLocal);
-              const cfg = statusConfig[displayStatus];
+              const cfg = getStatusDisplay(snap.status);
+              const isOwn = snap.coachUserId === currentUserId;
               return (
                 <button
                   key={snap.id}
@@ -97,50 +108,40 @@ export default function InsightsPage() {
                   className="w-full rounded-xl border border-border bg-card p-4 shadow-card hover:shadow-soft transition-all text-left"
                 >
                   <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-xs font-semibold text-foreground">
-                      {formatWeekLabel(snap.weekStart, snap.weekEnd)}
+                    <span className="text-xs font-semibold text-foreground truncate flex-1 mr-2">
+                      {snap.title || 'Weekly Snapshot'}
                     </span>
-                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${cfg.cls}`}>
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold shrink-0 ${cfg.cls}`}>
                       {cfg.label}
                     </span>
                   </div>
-                  <div className="flex gap-4 text-xs text-muted-foreground">
-                    <span>{snap.abcCount} ABC</span>
-                    <span>{snap.frequencyTotal} freq</span>
-                    <span>{snap.durationMinutesTotal}m dur</span>
-                    <span>{snap.intensityAvg > 0 ? `${snap.intensityAvg} avg` : '—'}</span>
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    <span>{new Date(snap.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                    {isOwn ? (
+                      <span className="flex items-center gap-1 text-primary">
+                        <User className="h-3 w-3" /> Created by you
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 text-accent">
+                        <User className="h-3 w-3" /> From your support team
+                      </span>
+                    )}
                   </div>
 
                   {/* Expanded detail */}
                   {selectedSnapshot?.id === snap.id && (
                     <div className="mt-3 pt-3 border-t border-border space-y-2 animate-fade-in">
-                      <DetailRow label="ABC Count" value={String(snap.abcCount)} />
-                      <DetailRow label="Frequency Total" value={String(snap.frequencyTotal)} />
-                      <DetailRow label="Duration (min)" value={String(snap.durationMinutesTotal)} />
-                      <DetailRow label="Avg Intensity" value={snap.intensityAvg > 0 ? snap.intensityAvg.toFixed(1) : '—'} />
-                      <DetailRow
-                        label="Functions"
-                        value={snap.topFunctions.map(f => FUNCTION_OPTIONS.find(o => o.value === f)?.label || f).join(', ') || '—'}
-                      />
-                      <DetailRow
-                        label="Triggers"
-                        value={snap.topTriggers.map(t => TRIGGER_OPTIONS.find(o => o.value === t)?.label || t).join(', ') || '—'}
-                      />
-                      <DetailRow label="Tools Used" value={snap.toolsUsed.join(', ') || '—'} />
-                      <DetailRow label="App Minutes" value={String(snap.engagementMinutes)} />
-                      <DetailRow label="Games Completed" value={String(snap.gamesCompleted)} />
-                      {snap.parentNotes && (
-                        <div className="mt-2">
-                          <p className="text-[10px] font-semibold text-muted-foreground uppercase">Notes</p>
-                          <p className="text-xs text-foreground mt-0.5">{snap.parentNotes}</p>
-                        </div>
+                      <DetailRow label="Status" value={cfg.label} />
+                      {snap.description && <DetailRow label="Notes" value={snap.description} />}
+                      {snap.evidenceSummary && <DetailRow label="Summary" value={snap.evidenceSummary} />}
+                      {snap.caregiverName && <DetailRow label="Caregiver" value={`${snap.caregiverName}${snap.caregiverRelationship ? ` (${snap.caregiverRelationship})` : ''}`} />}
+                      {snap.activeSeconds != null && snap.activeSeconds > 0 && (
+                        <DetailRow label="Time in form" value={`${Math.round(snap.activeSeconds / 60)}m`} />
                       )}
-                      {snap.sharedAt && (
-                        <p className="text-[10px] text-muted-foreground">Shared {new Date(snap.sharedAt).toLocaleDateString()}</p>
+                      {snap.submittedAt && (
+                        <DetailRow label="Submitted" value={new Date(snap.submittedAt).toLocaleDateString()} />
                       )}
-                      {snap.sharedPacketId && (
-                        <p className="text-[10px] text-muted-foreground font-mono">Packet: {snap.sharedPacketId.slice(0, 8)}…</p>
-                      )}
+                      <DetailRow label="Created" value={new Date(snap.createdAt).toLocaleString()} />
                     </div>
                   )}
                 </button>
@@ -150,41 +151,22 @@ export default function InsightsPage() {
         )}
       </section>
 
-      {/* Section 2: Trends */}
+      {/* Section 2: Overview */}
       <section className="space-y-3">
         <h3 className="font-display text-sm font-bold text-foreground flex items-center gap-2">
-          <TrendingUp className="h-4 w-4 text-primary" /> Trends
+          <TrendingUp className="h-4 w-4 text-primary" /> Overview
         </h3>
 
         {!trends ? (
           <div className="rounded-xl border border-border bg-card p-5 shadow-card text-center">
-            <p className="text-sm text-muted-foreground">Save 2+ snapshots to see trends.</p>
+            <p className="text-sm text-muted-foreground">Create a snapshot to see your overview.</p>
           </div>
         ) : (
           <div className="grid gap-3 grid-cols-2">
-            <TrendCard
-              title="Frequency"
-              values={trends.freqTrend}
-              format={(v) => String(v)}
-            />
-            <TrendCard
-              title="Intensity"
-              values={trends.intensityTrend}
-              format={(v) => v.toFixed(1)}
-            />
-            <TrendCard
-              title="Duration (min)"
-              values={trends.durationTrend}
-              format={(v) => String(v)}
-            />
-            <div className="rounded-xl border border-border bg-card p-4 shadow-card flex flex-col justify-center">
-              <p className="text-[10px] font-semibold text-muted-foreground uppercase mb-1">Most Common "Why"</p>
-              <p className="font-display text-sm font-bold text-foreground">
-                {trends.topFunction
-                  ? FUNCTION_OPTIONS.find(o => o.value === trends.topFunction)?.label || trends.topFunction
-                  : '—'}
-              </p>
-            </div>
+            <StatCard label="Total Snapshots" value={String(trends.totalSnapshots)} />
+            <StatCard label="Drafts" value={String(trends.draftCount)} />
+            <StatCard label="Submitted" value={String(trends.submittedCount)} />
+            <StatCard label="Reviewed" value={String(trends.reviewedCount)} />
           </div>
         )}
       </section>
@@ -197,7 +179,7 @@ export default function InsightsPage() {
 
         {patternNotes.length === 0 ? (
           <div className="rounded-xl border border-border bg-card p-5 shadow-card text-center">
-            <p className="text-sm text-muted-foreground">Create snapshots and tag functions/triggers to see patterns.</p>
+            <p className="text-sm text-muted-foreground">Create snapshots to see patterns.</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -258,43 +240,18 @@ export default function InsightsPage() {
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between text-xs">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="text-foreground font-medium">{value}</span>
+    <div className="flex items-start justify-between text-xs gap-2">
+      <span className="text-muted-foreground shrink-0">{label}</span>
+      <span className="text-foreground font-medium text-right">{value}</span>
     </div>
   );
 }
 
-function TrendCard({ title, values, format }: { title: string; values: number[]; format: (v: number) => string }) {
-  const latest = values[0] ?? 0;
-  const prev = values[1] ?? 0;
-  const direction = latest > prev ? 'up' : latest < prev ? 'down' : 'flat';
-  const Icon = direction === 'up' ? TrendingUp : direction === 'down' ? TrendingDown : Minus;
-  const color = direction === 'down' ? 'text-success' : direction === 'up' ? 'text-secondary' : 'text-muted-foreground';
-
+function StatCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl border border-border bg-card p-4 shadow-card">
-      <p className="text-[10px] font-semibold text-muted-foreground uppercase mb-1">{title}</p>
-      <div className="flex items-center gap-2">
-        <p className="font-display text-lg font-bold text-foreground">{format(latest)}</p>
-        <Icon className={`h-4 w-4 ${color}`} />
-      </div>
-      <div className="flex gap-1 mt-2">
-        {[...values].reverse().map((v, i) => (
-          <div
-            key={i}
-            className="flex-1 rounded bg-primary/20"
-            style={{ height: `${Math.max(4, (v / (Math.max(...values, 1))) * 24)}px` }}
-          />
-        ))}
-      </div>
+      <p className="text-[10px] font-semibold text-muted-foreground uppercase mb-1">{label}</p>
+      <p className="font-display text-lg font-bold text-foreground">{value}</p>
     </div>
   );
-}
-
-function formatWeekLabel(start: string, end: string): string {
-  const s = new Date(start + 'T00:00:00');
-  const e = new Date(end + 'T00:00:00');
-  const fmt = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  return `${fmt(s)} – ${fmt(e)}`;
 }

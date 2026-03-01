@@ -14,7 +14,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { getCurrentUser } from '@/lib/dal';
 import { getDisplayName } from '@/lib/profile-dal';
 import { Button } from '@/components/ui/button';
-import { getSnapshotsForUser, toDisplayStatus, type WeeklySnapshot, type SnapshotStatus } from '@/lib/snapshots';
+import { fetchSnapshots, getStatusDisplay, type WeeklySnapshot, type SnapshotStatus } from '@/lib/snapshots';
 import { getMyProgress } from '@/lib/academy-dal';
 import { getStreak, recordActivity, getStreakMilestone, checkStreakRecovery, recoverStreak, STREAK_RECOVERY_COST, type UserStreak } from '@/lib/streaks';
 import { useToast } from '@/hooks/use-toast';
@@ -28,8 +28,9 @@ const GROWTH_LEVELS = [
   { level: 5, name: 'Confident Coach', xpNeeded: 1000, emoji: '🌟' },
 ];
 
-const snapshotStatusConfig: Record<SnapshotStatus, { label: string; cls: string; icon: React.ElementType }> = {
-  saved: { label: 'Saved', cls: 'bg-muted text-muted-foreground', icon: Package },
+const snapshotStatusConfig: Record<string, { label: string; cls: string; icon: React.ElementType }> = {
+  draft: { label: 'Saved', cls: 'bg-muted text-muted-foreground', icon: Package },
+  submitted: { label: 'Submitted', cls: 'bg-warning/10 text-warning', icon: Clock },
   pending_review: { label: 'Pending Review', cls: 'bg-warning/10 text-warning', icon: Clock },
   reviewed: { label: 'Reviewed', cls: 'bg-success/10 text-success', icon: CheckCircle2 },
   returned: { label: 'Returned', cls: 'bg-secondary/10 text-secondary', icon: AlertTriangle },
@@ -106,7 +107,7 @@ export default function Dashboard() {
         const name = await getDisplayName(user.id);
         setUserName(name || email.split('@')[0] || 'there');
         setUserId(user.id);
-        setSnapshots(getSnapshotsForUser(user.id));
+        fetchSnapshots().then(snaps => setSnapshots(snaps));
 
         // Load DB-backed academy progress
         try {
@@ -149,7 +150,7 @@ export default function Dashboard() {
   }
 
   const latestSnapshot = snapshots[0] || null;
-  const returnedSnapshot = snapshots.find(s => s.statusLocal === 'returned');
+  const returnedSnapshot = snapshots.find(s => s.status === 'returned');
   const totalModules = dbModulesCompleted + localLessons;
 
   // ─── First-time: 2-card onboarding ────────────────
@@ -316,7 +317,7 @@ export default function Dashboard() {
             <h3 className="font-display font-bold text-foreground text-sm">Snapshot Returned</h3>
           </div>
           <p className="text-sm text-muted-foreground">
-            Your support team returned a snapshot for the week of {new Date(returnedSnapshot.weekStart + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}.
+            Your support team returned a snapshot: "{returnedSnapshot.title || 'Weekly Snapshot'}".
           </p>
           <Link to="/insights">
             <Button size="sm" variant="outline" className="w-full gap-1.5 mt-1">View in My Insights</Button>
@@ -377,28 +378,18 @@ export default function Dashboard() {
               <span className="text-xs font-semibold uppercase tracking-wide text-primary">Weekly Snapshot</span>
             </div>
             {latestSnapshot && (
-              <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${snapshotStatusConfig[toDisplayStatus(latestSnapshot.statusLocal)].cls}`}>
-                {snapshotStatusConfig[toDisplayStatus(latestSnapshot.statusLocal)].label}
+              <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${(snapshotStatusConfig[latestSnapshot.status] || snapshotStatusConfig.draft).cls}`}>
+                {(snapshotStatusConfig[latestSnapshot.status] || snapshotStatusConfig.draft).label}
               </span>
             )}
           </div>
 
           {latestSnapshot ? (
             <div className="space-y-2">
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="rounded-lg bg-muted/50 p-2">
-                  <p className="font-display text-lg font-bold text-foreground">{latestSnapshot.abcCount}</p>
-                  <p className="text-[10px] text-muted-foreground">ABC</p>
-                </div>
-                <div className="rounded-lg bg-muted/50 p-2">
-                  <p className="font-display text-lg font-bold text-foreground">{latestSnapshot.frequencyTotal}</p>
-                  <p className="text-[10px] text-muted-foreground">Frequency</p>
-                </div>
-                <div className="rounded-lg bg-muted/50 p-2">
-                  <p className="font-display text-lg font-bold text-foreground">{latestSnapshot.intensityAvg > 0 ? latestSnapshot.intensityAvg.toFixed(1) : '—'}</p>
-                  <p className="text-[10px] text-muted-foreground">Avg Intensity</p>
-                </div>
-              </div>
+              <p className="text-sm font-semibold text-foreground truncate">{latestSnapshot.title || 'Weekly Snapshot'}</p>
+              <p className="text-xs text-muted-foreground">
+                Created {new Date(latestSnapshot.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              </p>
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">Create your first Weekly Snapshot to track patterns and share progress.</p>

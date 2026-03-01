@@ -1,80 +1,75 @@
 /**
  * Weekly Snapshot Builder
  * ──────────────────────
- * Multi-step flow: Week Picker → Build → Preview → Save / Share
+ * Creates a row in public.coach_evidence_packets.
+ * Flow: Week Picker → Build → Preview → Save (draft) / Submit
  */
 
 import { useState, useEffect } from 'react';
 import {
-  ArrowLeft, ArrowRight, Calendar, Save, Send, CheckCircle2, Info,
-  Loader2, ChevronDown, ChevronUp,
+  ArrowLeft, ArrowRight, Calendar, Save, Send,
+  Loader2, ChevronDown, ChevronUp, Info,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getCurrentUser } from '@/lib/dal';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import {
   getRecentWeeks,
-  autoFillSnapshot,
-  saveSnapshot,
-  shareSnapshot,
+  defaultSnapshotTitle,
+  createSnapshot,
   checkAgencyLink,
+  getMyLearners,
   FUNCTION_OPTIONS,
   TRIGGER_OPTIONS,
-  type WeeklySnapshot,
   type AgencyLinkInfo,
 } from '@/lib/snapshots';
+import { supabase } from '@/integrations/supabase/client';
 
 type Step = 'week' | 'build' | 'preview';
 
 export default function SnapshotBuilderPage() {
   const [step, setStep] = useState<Step>('week');
-  const [userId, setUserId] = useState('');
   const [agencyLink, setAgencyLink] = useState<AgencyLinkInfo>({ isLinked: false });
+  const [learners, setLearners] = useState<{ clientId: string; agencyId: string }[]>([]);
+  const [selectedLearnerId, setSelectedLearnerId] = useState<string>('');
   const [saving, setSaving] = useState(false);
-  const [sharing, setSharing] = useState(false);
-  const [shareError, setShareError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [errorDetail, setErrorDetail] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Week selection
   const weeks = getRecentWeeks(8);
   const [selectedWeek, setSelectedWeek] = useState(weeks[0]);
 
-  // Form state
   const [form, setForm] = useState({
-    abcCount: 0,
-    frequencyTotal: 0,
-    durationMinutesTotal: 0,
-    intensityAvg: 0,
+    title: defaultSnapshotTitle(weeks[0].label),
+    description: '',
     topFunctions: [] as string[],
     topTriggers: [] as string[],
-    toolsUsed: [] as string[],
-    engagementMinutes: 0,
-    gamesCompleted: 0,
-    parentNotes: '',
+    caregiverName: '',
+    caregiverRelationship: '',
   });
 
-  // Info expand state for functions
   const [expandedInfo, setExpandedInfo] = useState<string | null>(null);
 
   useEffect(() => {
-    getCurrentUser().then(async u => {
-      if (u) {
-        setUserId(u.id);
-        const link = await checkAgencyLink();
-        setAgencyLink(link);
-      }
-    });
+    (async () => {
+      const [link, learnerList] = await Promise.all([
+        checkAgencyLink(),
+        getMyLearners(),
+      ]);
+      setAgencyLink(link);
+      setLearners(learnerList);
+      if (link.clientId) setSelectedLearnerId(link.clientId);
+      else if (learnerList.length > 0) setSelectedLearnerId(learnerList[0].clientId);
+    })();
   }, []);
 
   function handleSelectWeek(week: typeof weeks[0]) {
     setSelectedWeek(week);
-    // Auto-fill
-    const prefill = autoFillSnapshot(userId, week.start, week.end);
-    setForm(f => ({ ...f, ...prefill }));
+    setForm(f => ({ ...f, title: defaultSnapshotTitle(week.label) }));
     setStep('build');
   }
 
@@ -87,62 +82,80 @@ export default function SnapshotBuilderPage() {
     }));
   }
 
-  function buildSnapshotObject(): WeeklySnapshot {
-    return {
-      id: crypto.randomUUID(),
-      userId,
-      clientId: agencyLink.clientId,
-      weekStart: selectedWeek.start,
-      weekEnd: selectedWeek.end,
-      createdAt: new Date().toISOString(),
-      statusLocal: 'saved',
-      ...form,
-    };
+  function buildEvidenceSummary(): string {
+    const parts: string[] = [];
+    if (form.topFunctions.length > 0) {
+      const labels = form.topFunctions.map(v => FUNCTION_OPTIONS.find(o => o.value === v)?.label || v);
+      parts.push(`Functions: ${labels.join(', ')}`);
+    }
+    if (form.topTriggers.length > 0) {
+      const labels = form.topTriggers.map(v => TRIGGER_OPTIONS.find(o => o.value === v)?.label || v);
+      parts.push(`Triggers: ${labels.join(', ')}`);
+    }
+    return parts.join(' | ');
+  }
+
+  function getAgencyIdForLearner(): string | null {
+    const match = learners.find(l => l.clientId === selectedLearnerId);
+    return match?.agencyId || agencyLink.agencyId || null;
   }
 
   async function handleSave() {
-    setSaving(true);
-    try {
-      const snapshot = buildSnapshotObject();
-      saveSnapshot(snapshot);
-      toast({ title: '✅ Snapshot Saved', description: `Week of ${selectedWeek.label} saved locally.` });
-      navigate('/insights');
-    } catch (err: any) {
-      toast({ title: 'Error', description: err?.message || 'Could not save.', variant: 'destructive' });
+    if (!selectedLearnerId) {
+      toast({ title: 'Select a Learner', description: 'Please choose a learner before saving.', variant: 'destructive' });
+      return;
     }
+    setSaving(true);
+    setErrorDetail(null);
+
+    const result = await createSnapshot({
+      agencyId: getAgencyIdForLearner(),
+      studentId: selectedLearnerId,
+      title: form.title,
+      description: form.description,
+      evidenceSummary: buildEvidenceSummary(),
+      caregiverName: form.caregiverName || undefined,
+      caregiverRelationship: form.caregiverRelationship || undefined,
+      status: 'draft',
+    });
+
     setSaving(false);
+    if (result.success) {
+      toast({ title: '✅ Snapshot Saved', description: `"${form.title}" saved as draft.` });
+      navigate('/insights');
+    } else {
+      setErrorDetail(result.error || 'Unknown error');
+      toast({ title: 'Save Failed', description: result.error || 'Could not save snapshot.', variant: 'destructive' });
+    }
   }
 
-  async function handleShare() {
-    setSharing(true);
-    setShareError(null);
-    try {
-      const snapshot = buildSnapshotObject();
-      snapshot.statusLocal = 'shared_pending';
-      snapshot.sharedAt = new Date().toISOString();
-
-      const result = await shareSnapshot(snapshot);
-      if (!result.success) {
-        // Save locally anyway with pending status
-        saveSnapshot(snapshot);
-        setShareError(result.error || 'Share failed');
-        toast({
-          title: '⚠️ Shared Locally',
-          description: 'Snapshot saved. Sharing to your support team is not yet available in this environment.',
-        });
-      } else {
-        // Store returned packet info
-        snapshot.sharedPacketId = result.insertedCount ? `shared-${Date.now()}` : null;
-        snapshot.lastSyncedAt = new Date().toISOString();
-        saveSnapshot(snapshot);
-        toast({ title: '📤 Snapshot Shared', description: `Your weekly snapshot has been submitted for review (${result.insertedCount ?? 1} packet).` });
-      }
-      navigate('/insights');
-    } catch (err: any) {
-      setShareError(err?.message || 'Unknown error');
-      toast({ title: 'Error', description: err?.message || 'Could not share.', variant: 'destructive' });
+  async function handleSubmit() {
+    if (!selectedLearnerId) {
+      toast({ title: 'Select a Learner', description: 'Please choose a learner before submitting.', variant: 'destructive' });
+      return;
     }
-    setSharing(false);
+    setSubmitting(true);
+    setErrorDetail(null);
+
+    const result = await createSnapshot({
+      agencyId: getAgencyIdForLearner(),
+      studentId: selectedLearnerId,
+      title: form.title,
+      description: form.description,
+      evidenceSummary: buildEvidenceSummary(),
+      caregiverName: form.caregiverName || undefined,
+      caregiverRelationship: form.caregiverRelationship || undefined,
+      status: 'submitted',
+    });
+
+    setSubmitting(false);
+    if (result.success) {
+      toast({ title: '📤 Snapshot Submitted', description: `"${form.title}" submitted for review.` });
+      navigate('/insights');
+    } else {
+      setErrorDetail(result.error || 'Unknown error');
+      toast({ title: 'Submit Failed', description: result.error || 'Could not submit snapshot.', variant: 'destructive' });
+    }
   }
 
   // ─── Step: Week Picker ─────────────────────────────────
@@ -158,6 +171,22 @@ export default function SnapshotBuilderPage() {
             <p className="text-sm text-muted-foreground">Pick the week to summarize.</p>
           </div>
         </div>
+
+        {/* Learner selector */}
+        {learners.length > 1 && (
+          <div>
+            <label className="text-xs font-medium text-foreground mb-1 block">Learner</label>
+            <select
+              value={selectedLearnerId}
+              onChange={e => setSelectedLearnerId(e.target.value)}
+              className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
+            >
+              {learners.map(l => (
+                <option key={l.clientId} value={l.clientId}>{l.clientId.slice(0, 8)}…</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div className="space-y-2">
           {weeks.map(week => (
@@ -193,12 +222,14 @@ export default function SnapshotBuilderPage() {
         </div>
 
         <div className="space-y-4">
-          {/* Numeric fields */}
-          <div className="grid grid-cols-2 gap-3">
-            <NumField label="ABC Entries" value={form.abcCount} onChange={v => setForm(f => ({ ...f, abcCount: v }))} />
-            <NumField label="Frequency Total" value={form.frequencyTotal} onChange={v => setForm(f => ({ ...f, frequencyTotal: v }))} />
-            <NumField label="Duration (min)" value={form.durationMinutesTotal} onChange={v => setForm(f => ({ ...f, durationMinutesTotal: v }))} />
-            <NumField label="Avg Intensity" value={form.intensityAvg} onChange={v => setForm(f => ({ ...f, intensityAvg: v }))} step={0.1} />
+          {/* Title */}
+          <div>
+            <label className="text-xs font-medium text-foreground mb-1 block">Title</label>
+            <Input
+              value={form.title}
+              onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+              placeholder="Weekly Snapshot — Week of..."
+            />
           </div>
 
           {/* Functions */}
@@ -254,25 +285,25 @@ export default function SnapshotBuilderPage() {
             </div>
           </div>
 
-          {/* Engagement */}
+          {/* Caregiver info (optional) */}
           <div className="grid grid-cols-2 gap-3">
-            <NumField label="App Minutes" value={form.engagementMinutes} onChange={v => setForm(f => ({ ...f, engagementMinutes: v }))} />
-            <NumField label="Games Completed" value={form.gamesCompleted} onChange={v => setForm(f => ({ ...f, gamesCompleted: v }))} />
-          </div>
-
-          {/* Tools used (read-only chips) */}
-          {form.toolsUsed.length > 0 && (
             <div>
-              <p className="text-xs font-semibold text-foreground mb-1">Tools Used</p>
-              <div className="flex flex-wrap gap-1.5">
-                {form.toolsUsed.map(t => (
-                  <span key={t} className="rounded-full bg-primary/10 text-primary px-2.5 py-0.5 text-[10px] font-bold">
-                    {t}
-                  </span>
-                ))}
-              </div>
+              <label className="text-xs font-medium text-foreground mb-1 block">Caregiver Name (optional)</label>
+              <Input
+                value={form.caregiverName}
+                onChange={e => setForm(f => ({ ...f, caregiverName: e.target.value }))}
+                placeholder="e.g. Maria"
+              />
             </div>
-          )}
+            <div>
+              <label className="text-xs font-medium text-foreground mb-1 block">Relationship (optional)</label>
+              <Input
+                value={form.caregiverRelationship}
+                onChange={e => setForm(f => ({ ...f, caregiverRelationship: e.target.value }))}
+                placeholder="e.g. Mother"
+              />
+            </div>
+          </div>
 
           {/* Notes */}
           <div>
@@ -280,8 +311,8 @@ export default function SnapshotBuilderPage() {
             <Textarea
               placeholder="Anything you'd like to add about this week…"
               rows={3}
-              value={form.parentNotes}
-              onChange={e => setForm(f => ({ ...f, parentNotes: e.target.value }))}
+              value={form.description}
+              onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
             />
           </div>
         </div>
@@ -294,6 +325,8 @@ export default function SnapshotBuilderPage() {
   }
 
   // ─── Step: Preview ─────────────────────────────────────
+  const summaryText = buildEvidenceSummary();
+
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-3">
@@ -308,12 +341,14 @@ export default function SnapshotBuilderPage() {
 
       {/* Summary card */}
       <div className="rounded-2xl border border-primary/20 bg-card p-5 shadow-soft space-y-4">
-        <div className="grid grid-cols-4 gap-2 text-center">
-          <MiniStat label="ABC" value={String(form.abcCount)} />
-          <MiniStat label="Freq" value={String(form.frequencyTotal)} />
-          <MiniStat label="Duration" value={`${form.durationMinutesTotal}m`} />
-          <MiniStat label="Intensity" value={form.intensityAvg > 0 ? form.intensityAvg.toFixed(1) : '—'} />
-        </div>
+        <h3 className="font-display text-base font-bold text-foreground">{form.title}</h3>
+
+        {summaryText && (
+          <div>
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase mb-1">Evidence Summary</p>
+            <p className="text-sm text-foreground">{summaryText}</p>
+          </div>
+        )}
 
         {form.topFunctions.length > 0 && (
           <div>
@@ -341,18 +376,18 @@ export default function SnapshotBuilderPage() {
           </div>
         )}
 
-        {form.parentNotes && (
+        {form.description && (
           <div>
             <p className="text-[10px] font-semibold text-muted-foreground uppercase mb-1">Notes</p>
-            <p className="text-sm text-foreground">{form.parentNotes}</p>
+            <p className="text-sm text-foreground">{form.description}</p>
           </div>
         )}
 
-        <div className="flex gap-4 text-xs text-muted-foreground">
-          <span>🕐 {form.engagementMinutes}m in app</span>
-          <span>🎮 {form.gamesCompleted} games</span>
-          {form.toolsUsed.length > 0 && <span>🔧 {form.toolsUsed.length} tools</span>}
-        </div>
+        {form.caregiverName && (
+          <div className="text-xs text-muted-foreground">
+            Caregiver: {form.caregiverName}{form.caregiverRelationship ? ` (${form.caregiverRelationship})` : ''}
+          </div>
+        )}
       </div>
 
       {/* Actions */}
@@ -360,7 +395,7 @@ export default function SnapshotBuilderPage() {
         <Button
           className="w-full gap-1.5"
           onClick={handleSave}
-          disabled={saving}
+          disabled={saving || submitting}
         >
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
           {saving ? 'Saving…' : 'Save Weekly Snapshot'}
@@ -370,11 +405,11 @@ export default function SnapshotBuilderPage() {
           <Button
             variant="outline"
             className="w-full gap-1.5 border-primary/30 text-primary hover:bg-primary/5"
-            onClick={handleShare}
-            disabled={sharing}
+            onClick={handleSubmit}
+            disabled={saving || submitting}
           >
-            {sharing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            {sharing ? 'Sharing…' : 'Share Weekly Snapshot'}
+            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            {submitting ? 'Submitting…' : 'Submit Weekly Snapshot'}
           </Button>
         ) : (
           <div className="rounded-xl border border-border bg-muted/30 p-4 text-center">
@@ -385,46 +420,18 @@ export default function SnapshotBuilderPage() {
         )}
       </div>
 
-      {/* Share error detail */}
-      {shareError && (
-        <ShareErrorDetail error={shareError} />
-      )}
+      {/* Error detail */}
+      {errorDetail && <ErrorDetail error={errorDetail} />}
     </div>
   );
 }
 
-// ─── Small components ────────────────────────────────────
-
-function NumField({ label, value, onChange, step = 1 }: { label: string; value: number; onChange: (v: number) => void; step?: number }) {
-  return (
-    <div>
-      <label className="text-xs font-medium text-foreground mb-1 block">{label}</label>
-      <Input
-        type="number"
-        step={step}
-        min={0}
-        value={value}
-        onChange={e => onChange(Number(e.target.value) || 0)}
-      />
-    </div>
-  );
-}
-
-function MiniStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg bg-muted/50 p-2">
-      <p className="font-display text-lg font-bold text-foreground">{value}</p>
-      <p className="text-[10px] text-muted-foreground">{label}</p>
-    </div>
-  );
-}
-
-function ShareErrorDetail({ error }: { error: string }) {
+function ErrorDetail({ error }: { error: string }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-3">
       <button onClick={() => setOpen(!open)} className="flex items-center gap-2 w-full text-xs text-destructive font-semibold">
-        ⚠️ Share encountered an issue
+        ⚠️ Something went wrong
         {open ? <ChevronUp className="h-3 w-3 ml-auto" /> : <ChevronDown className="h-3 w-3 ml-auto" />}
       </button>
       {open && (
