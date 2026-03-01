@@ -103,7 +103,7 @@ function LearnerProgress() {
           </li>
           <li className="flex items-start gap-2 text-sm">
             <div className="h-2 w-2 rounded-full bg-secondary mt-1.5 shrink-0" />
-            <p className="text-muted-foreground">Submit your Evidence Packet when you have enough data.</p>
+            <p className="text-muted-foreground">Create a Weekly Snapshot when you have enough data.</p>
           </li>
         </ul>
       </div>

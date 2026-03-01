@@ -1,13 +1,13 @@
 import { NavLink } from 'react-router-dom';
-import { Home, Wrench, BookOpen, Gamepad2, User } from 'lucide-react';
+import { Home, Wrench, BookOpen, Gamepad2, User, BarChart3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useEngagement } from '@/hooks/useEngagement';
 
 const navItems = [
   { to: '/', label: 'Home', icon: Home },
   { to: '/academy', label: 'Academy', icon: BookOpen },
+  { to: '/insights', label: 'Insights', icon: BarChart3 },
   { to: '/toolkit', label: 'Toolkit', icon: Wrench },
-  { to: '/behavior-lab', label: 'Lab', icon: Gamepad2 },
   { to: '/profile', label: 'Profile', icon: User },
 ];
 

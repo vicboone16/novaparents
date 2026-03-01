@@ -23,6 +23,8 @@ import NovaAcademyPage from "@/pages/NovaAcademyPage";
 import BehaviorLabPage from "@/pages/BehaviorLabPage";
 import AcademyAdminPage from "@/pages/AcademyAdminPage";
 import BehaviorLabAdminPage from "@/pages/BehaviorLabAdminPage";
+import InsightsPage from "@/pages/InsightsPage";
+import SnapshotBuilderPage from "@/pages/SnapshotBuilderPage";
 import NotFound from "./pages/NotFound";
 import { CoachBotFAB } from "./components/CoachBot";
 
@@ -77,6 +79,8 @@ function AppContent() {
           <Route path="/log" element={<BehaviorLogPage />} />
           <Route path="/academy" element={<NovaAcademyPage />} />
           <Route path="/behavior-lab" element={<BehaviorLabPage />} />
+          <Route path="/insights" element={<InsightsPage />} />
+          <Route path="/insights/new" element={<SnapshotBuilderPage />} />
           <Route path="/progress" element={<ProgressPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/audit" element={<AuditDashboardPage />} />
