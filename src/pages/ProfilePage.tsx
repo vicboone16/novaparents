@@ -194,16 +194,16 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Link to Agency / Redeem Code */}
+      {/* Connect to Agency */}
       <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Link2 className="h-4 w-4 text-primary" />
-            <p className="text-xs font-semibold text-primary uppercase tracking-wide">Agency Link</p>
+            <p className="text-xs font-semibold text-primary uppercase tracking-wide">Connect to Agency</p>
           </div>
           {!showRedeem && (
             <Button size="sm" variant="outline" onClick={() => setShowRedeem(true)} className="gap-1 text-xs">
-              <Ticket className="h-3.5 w-3.5" /> Redeem Code
+              <Ticket className="h-3.5 w-3.5" /> Enter Invite Code
             </Button>
           )}
         </div>
@@ -213,22 +213,25 @@ export default function ProfilePage() {
             {agencyAccess.map(a => (
               <div key={a.id} className="flex items-center gap-2 text-sm text-foreground rounded-lg bg-card border border-border px-3 py-2">
                 <CheckCircle2 className="h-4 w-4 text-success shrink-0" />
-                <span className="font-mono text-xs">{a.agency_id.slice(0, 8)}…</span>
+                <span className="text-sm font-medium">Connected</span>
                 <span className="text-xs text-muted-foreground ml-auto">{a.role}</span>
               </div>
             ))}
           </div>
         ) : !showRedeem ? (
-          <p className="text-xs text-muted-foreground">No agency linked yet. Redeem a code to connect.</p>
+          <p className="text-xs text-muted-foreground">
+            Have an invite code from your BCBA or agency? Tap "Enter Invite Code" to connect your account and see your learner's data.
+          </p>
         ) : null}
 
-        {showRedeem && (
+      {showRedeem && (
           <RedeemCodeForm
             redeemedFrom="settings"
             onCancel={() => setShowRedeem(false)}
             onSuccess={() => {
               setShowRedeem(false);
               getMyAgencyAccess().then(setAgencyAccess);
+              getMyClients().then(setClients);
             }}
             compact
           />
