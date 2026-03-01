@@ -570,6 +570,66 @@ export type Database = {
         }
         Relationships: []
       }
+      invite_codes: {
+        Row: {
+          agency_id: string
+          app_context: string | null
+          client_id: string | null
+          code: string
+          created_at: string
+          created_by: string | null
+          expires_at: string | null
+          group_id: string | null
+          invite_id: string
+          invite_scope: string | null
+          max_uses: number
+          permissions: Json | null
+          revoked_at: string | null
+          revoked_by: string | null
+          role_slug: string | null
+          status: string
+          uses_count: number
+        }
+        Insert: {
+          agency_id: string
+          app_context?: string | null
+          client_id?: string | null
+          code: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          group_id?: string | null
+          invite_id?: string
+          invite_scope?: string | null
+          max_uses?: number
+          permissions?: Json | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+          role_slug?: string | null
+          status?: string
+          uses_count?: number
+        }
+        Update: {
+          agency_id?: string
+          app_context?: string | null
+          client_id?: string | null
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          group_id?: string | null
+          invite_id?: string
+          invite_scope?: string | null
+          max_uses?: number
+          permissions?: Json | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+          role_slug?: string | null
+          status?: string
+          uses_count?: number
+        }
+        Relationships: []
+      }
       notification_preferences: {
         Row: {
           created_at: string
@@ -620,6 +680,50 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      user_agency_access: {
+        Row: {
+          agency_id: string
+          client_id: string | null
+          created_at: string
+          id: string
+          linked_via_invite_id: string | null
+          redeemed_at: string | null
+          redeemed_from: string | null
+          role: string
+          user_id: string
+        }
+        Insert: {
+          agency_id: string
+          client_id?: string | null
+          created_at?: string
+          id?: string
+          linked_via_invite_id?: string | null
+          redeemed_at?: string | null
+          redeemed_from?: string | null
+          role?: string
+          user_id: string
+        }
+        Update: {
+          agency_id?: string
+          client_id?: string | null
+          created_at?: string
+          id?: string
+          linked_via_invite_id?: string | null
+          redeemed_at?: string | null
+          redeemed_from?: string | null
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_agency_access_linked_via_invite_id_fkey"
+            columns: ["linked_via_invite_id"]
+            isOneToOne: false
+            referencedRelation: "invite_codes"
+            referencedColumns: ["invite_id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
@@ -683,6 +787,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      redeem_invite_code: {
+        Args: { _code: string; _redeemed_from?: string }
+        Returns: Json
       }
     }
     Enums: {
