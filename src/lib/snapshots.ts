@@ -9,6 +9,9 @@ import { supabase } from '@/integrations/supabase/client';
 
 // ─── Types ───────────────────────────────────────────────
 
+export type SnapshotStatusLocal = 'saved' | 'shared_pending' | 'reviewed' | 'returned';
+
+/** Display-facing status (maps from status_local) */
 export type SnapshotStatus = 'saved' | 'pending_review' | 'reviewed' | 'returned';
 
 export interface WeeklySnapshot {
@@ -18,7 +21,7 @@ export interface WeeklySnapshot {
   weekStart: string; // ISO date (Monday)
   weekEnd: string;   // ISO date (Sunday)
   createdAt: string;
-  status: SnapshotStatus;
+  statusLocal: SnapshotStatusLocal;
 
   // Core data
   abcCount: number;
@@ -34,6 +37,8 @@ export interface WeeklySnapshot {
 
   // Sharing metadata
   sharedAt?: string;
+  sharedPacketId?: string | null;
+  lastSyncedAt?: string | null;
 }
 
 export interface AgencyLinkInfo {
@@ -41,6 +46,13 @@ export interface AgencyLinkInfo {
   agencyId?: string;
   clientId?: string;
   role?: string;
+}
+
+// ─── Status mapping ──────────────────────────────────────
+
+export function toDisplayStatus(s: SnapshotStatusLocal): SnapshotStatus {
+  if (s === 'shared_pending') return 'pending_review';
+  return s;
 }
 
 // ─── Constants ───────────────────────────────────────────
@@ -91,7 +103,7 @@ export function getWeekRange(date: Date = new Date()): { start: string; end: str
   };
 }
 
-export function getRecentWeeks(count: number = 8): { start: string; end: string; label: string }[] {
+export function getRecentWeeks(count: number = 12): { start: string; end: string; label: string }[] {
   const weeks: ReturnType<typeof getWeekRange>[] = [];
   const now = new Date();
   for (let i = 0; i < count; i++) {
@@ -100,6 +112,12 @@ export function getRecentWeeks(count: number = 8): { start: string; end: string;
     weeks.push(getWeekRange(d));
   }
   return weeks;
+}
+
+// ─── Storage key ─────────────────────────────────────────
+
+function snapshotKey(userId: string, clientId?: string, weekStart?: string): string {
+  return `${userId}:${clientId || 'self'}:${weekStart || ''}`;
 }
 
 // ─── Local Storage CRUD ──────────────────────────────────
@@ -124,9 +142,10 @@ export function getSnapshotsForUser(userId: string): WeeklySnapshot[] {
 
 export function saveSnapshot(snapshot: WeeklySnapshot): WeeklySnapshot {
   const all = loadSnapshots();
-  // Replace if same user + week, else prepend
+  const key = snapshotKey(snapshot.userId, snapshot.clientId, snapshot.weekStart);
+  // Replace if same composite key, else prepend
   const existingIdx = all.findIndex(
-    s => s.userId === snapshot.userId && s.weekStart === snapshot.weekStart
+    s => snapshotKey(s.userId, s.clientId, s.weekStart) === key
   );
   if (existingIdx >= 0) {
     all[existingIdx] = snapshot;
@@ -222,21 +241,38 @@ export async function checkAgencyLink(): Promise<AgencyLinkInfo> {
 
 // ─── Share to Backend ────────────────────────────────────
 
-export async function shareSnapshot(snapshot: WeeklySnapshot): Promise<{ success: boolean; error?: string }> {
+export async function shareSnapshot(snapshot: WeeklySnapshot): Promise<{ success: boolean; error?: string; insertedCount?: number }> {
   try {
-    // Try RPC first (NovaTrack backend)
+    const payload = {
+      week_start: snapshot.weekStart,
+      week_end: snapshot.weekEnd,
+      abc_count: snapshot.abcCount,
+      frequency_total: snapshot.frequencyTotal,
+      duration_minutes_total: snapshot.durationMinutesTotal,
+      intensity_avg: snapshot.intensityAvg,
+      top_functions: snapshot.topFunctions,
+      top_triggers: snapshot.topTriggers,
+      tools_used: snapshot.toolsUsed,
+      engagement_minutes: snapshot.engagementMinutes,
+      games_completed: snapshot.gamesCompleted,
+      parent_notes: snapshot.parentNotes,
+      source: 'parent_app',
+      status: 'pending',
+    };
+
     const { data, error } = await (supabase as any).rpc('submit_parent_summary_packets', {
       p_client_id: snapshot.clientId,
-      p_packets: [snapshot],
+      p_packets: [payload],
     });
 
     if (error) {
-      // RPC not available — this is expected if schema isn't in this DB
       console.warn('[Snapshots] RPC not available:', error.message);
       return { success: false, error: error.message };
     }
 
-    return { success: true };
+    // data may contain inserted count or packet ids
+    const insertedCount = typeof data === 'number' ? data : (data?.inserted_count ?? 1);
+    return { success: true, insertedCount };
   } catch (err: any) {
     return { success: false, error: err?.message || 'Unknown error' };
   }
@@ -244,19 +280,27 @@ export async function shareSnapshot(snapshot: WeeklySnapshot): Promise<{ success
 
 // ─── Trend helpers ───────────────────────────────────────
 
-export function computeTrends(snapshots: WeeklySnapshot[]) {
-  const recent = snapshots.slice(0, 4);
+export interface SnapshotTrends {
+  freqTrend: number[];
+  intensityTrend: number[];
+  durationTrend: number[];
+  topFunction: string | null;
+}
+
+export function computeTrends(snapshots: WeeklySnapshot[]): SnapshotTrends | null {
+  const recent = snapshots.slice(0, 8);
   if (recent.length < 2) return null;
 
   const freqTrend = recent.map(s => s.frequencyTotal);
   const intensityTrend = recent.map(s => s.intensityAvg);
+  const durationTrend = recent.map(s => s.durationMinutesTotal);
 
   // Count functions
   const funcCounts: Record<string, number> = {};
   recent.forEach(s => s.topFunctions.forEach(f => { funcCounts[f] = (funcCounts[f] || 0) + 1; }));
   const topFunction = Object.entries(funcCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
 
-  return { freqTrend, intensityTrend, topFunction };
+  return { freqTrend, intensityTrend, durationTrend, topFunction };
 }
 
 // ─── Pattern Notes ───────────────────────────────────────
@@ -280,13 +324,20 @@ export function generatePatternNotes(snapshots: WeeklySnapshot[]): string[] {
     if (latest.frequencyTotal > prev.frequencyTotal * 1.3) {
       notes.push('Frequency increased compared to last week.');
     }
-    if (latest.intensityAvg < prev.intensityAvg) {
+    if (latest.intensityAvg < prev.intensityAvg && latest.intensityAvg > 0) {
       notes.push('Average intensity decreased — progress!');
+    }
+    if (latest.durationMinutesTotal > prev.durationMinutesTotal * 1.3 && latest.durationMinutesTotal > 0) {
+      notes.push('Duration increased compared to last week.');
     }
   }
 
   if (latest.topTriggers.includes('demands')) {
     notes.push('Demand-related triggers were common.');
+  }
+
+  if (latest.topTriggers.includes('routine_change')) {
+    notes.push('Routine changes may have contributed to behaviors this week.');
   }
 
   return notes.slice(0, 2);
