@@ -109,3 +109,23 @@ export async function recordActivity(userId: string): Promise<UserStreak> {
     lastActivityDate: today,
   };
 }
+
+/**
+ * Streak milestone messages.
+ * Returns a motivational message if the streak hits a milestone, otherwise null.
+ */
+const MILESTONES: { days: number; emoji: string; message: string }[] = [
+  { days: 3, emoji: '🔥', message: '3-day streak! You\'re building momentum.' },
+  { days: 7, emoji: '⭐', message: '7-day streak! A full week of growth — amazing!' },
+  { days: 14, emoji: '🏆', message: '14-day streak! Two weeks strong. Your Learner benefits every day you show up.' },
+  { days: 21, emoji: '💎', message: '21-day streak! They say it takes 21 days to build a habit. You did it!' },
+  { days: 30, emoji: '🌟', message: '30-day streak! A whole month of consistency. You\'re a Confident Coach!' },
+  { days: 60, emoji: '🚀', message: '60-day streak! Your dedication is extraordinary.' },
+  { days: 100, emoji: '👑', message: '100-day streak! You\'re in the top tier. Incredible commitment!' },
+];
+
+export function getStreakMilestone(streak: number): { emoji: string; message: string } | null {
+  // Return the highest milestone that matches exactly
+  const milestone = MILESTONES.find(m => m.days === streak);
+  return milestone ? { emoji: milestone.emoji, message: milestone.message } : null;
+}
