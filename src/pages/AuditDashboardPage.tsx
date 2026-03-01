@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react';
 import { Shield, Clock, AlertTriangle, BarChart3, CheckCircle2, ChevronDown, ChevronUp, Eye, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useUserRole } from '@/hooks/useUserRole';
-import { getPacketsByStatus, getPackets, type EvidencePacket } from '@/lib/evidence';
+import { getPacketsByStatus, getPackets, type WeeklySnapshot } from '@/lib/evidence';
 import {
   getAllEvents,
   getAllFlags,
@@ -28,7 +28,7 @@ interface CoachSummary {
   flags: IntegrityFlag[];
   timings: Record<string, LessonTimingRecord>;
   score: CoachScore;
-  packets: EvidencePacket[];
+  packets: WeeklySnapshot[];
 }
 
 const TOTAL_LESSONS = 11;
@@ -38,7 +38,7 @@ export default function AuditDashboardPage() {
   const [coaches, setCoaches] = useState<CoachSummary[]>([]);
   const [expandedCoach, setExpandedCoach] = useState<string | null>(null);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
-  const [pendingPackets, setPendingPackets] = useState<EvidencePacket[]>([]);
+  const [pendingPackets, setPendingPackets] = useState<WeeklySnapshot[]>([]);
   const rubric = getRubric();
 
   useEffect(() => {
@@ -129,8 +129,8 @@ export default function AuditDashboardPage() {
         <div className="rounded-xl border border-warning/30 bg-warning/5 p-4 flex items-center gap-3">
           <AlertTriangle className="h-5 w-5 text-warning shrink-0" />
           <div>
-            <p className="font-display font-bold text-foreground text-sm">{pendingPackets.length} Evidence Packet(s) Pending Review</p>
-            <p className="text-xs text-muted-foreground">These packets need BCBA/admin review before billing eligibility is confirmed.</p>
+            <p className="font-display font-bold text-foreground text-sm">{pendingPackets.length} Weekly Snapshot(s) Pending Review</p>
+            <p className="text-xs text-muted-foreground">These snapshots need BCBA/admin review before billing eligibility is confirmed.</p>
           </div>
         </div>
       )}
@@ -252,10 +252,10 @@ export default function AuditDashboardPage() {
                       </div>
                     </div>
 
-                    {/* Evidence Packets */}
+                    {/* Weekly Snapshots */}
                     {coach.packets.length > 0 && (
                       <div>
-                        <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Evidence Packets</h5>
+                        <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Weekly Snapshots</h5>
                         <div className="space-y-1.5">
                           {coach.packets.slice(0, 5).map(p => (
                             <div key={p.id} className="flex items-center justify-between rounded-lg bg-muted/30 px-3 py-2 text-xs">

@@ -1,7 +1,7 @@
 /**
- * Evidence Packet Preview Dialog
- * ───────────────────────────────
- * Shows all data that will be bundled into the packet before submission.
+ * Weekly Snapshot Preview Dialog
+ * ──────────────────────────────
+ * Shows all data that will be bundled into the snapshot before submission.
  */
 
 import { useState } from 'react';
@@ -10,7 +10,7 @@ import {
   Shield, CheckCircle2, AlertTriangle, X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { buildEvidencePacket, type EvidencePacket } from '@/lib/evidence';
+import { buildWeeklySnapshot, type WeeklySnapshot } from '@/lib/evidence';
 
 interface Props {
   userId: string;
@@ -23,7 +23,7 @@ interface Props {
 export function EvidencePacketPreview({ userId, open, onClose, onConfirmSubmit, submitting }: Props) {
   if (!open || !userId) return null;
 
-  const packet = buildEvidencePacket(userId);
+  const packet = buildWeeklySnapshot(userId);
 
   const totalLogs = packet.behaviorLogsCount + packet.frequencyLogsCount + packet.durationLogsCount;
 
@@ -40,7 +40,7 @@ export function EvidencePacketPreview({ userId, open, onClose, onConfirmSubmit, 
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-card px-5 py-4 rounded-t-2xl">
           <div className="flex items-center gap-2">
             <Package className="h-5 w-5 text-primary" />
-            <h3 className="font-display text-lg font-bold text-foreground">Evidence Packet Preview</h3>
+            <h3 className="font-display text-lg font-bold text-foreground">Weekly Snapshot Preview</h3>
           </div>
           <button onClick={onClose} className="rounded-lg p-1 hover:bg-muted transition-colors">
             <X className="h-5 w-5 text-muted-foreground" />

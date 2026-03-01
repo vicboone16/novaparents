@@ -1,10 +1,10 @@
 /**
- * Evidence Packets
+ * Weekly Snapshots
  * ────────────────
  * Bundles lesson completions, quiz scores, reflections, implementation logs,
- * and learner data logs into a single Evidence Packet for agency review.
+ * and learner data logs into a single Weekly Snapshot for agency review.
  *
- * Phase 2: persists to backend via evidence_packets table.
+ * Reads/writes to public.weekly_snapshots (canonical table).
  */
 
 import { supabase } from '@/integrations/supabase/client';
@@ -15,7 +15,10 @@ import type { EngagementEvent, LessonTimingRecord, IntegrityFlag } from '@/lib/e
 
 export type PacketStatus = 'draft' | 'submitted' | 'pending_review' | 'approved' | 'needs_followup' | 'rejected';
 
-export interface EvidencePacket {
+/** @deprecated Use WeeklySnapshot terminology in UI. Kept for backward compat. */
+export type EvidencePacket = WeeklySnapshot;
+
+export interface WeeklySnapshot {
   id: string;
   userId: string;
   createdAt: string;
@@ -41,7 +44,7 @@ const TOTAL_LESSONS = 11;
 
 // ─── Build packet from local engagement data ─────────────
 
-export function buildEvidencePacket(userId: string): EvidencePacket {
+export function buildWeeklySnapshot(userId: string): WeeklySnapshot {
   const events = getAllEvents().filter(e => e.userId === userId);
   const timings = getAllTimings();
   const flags = getAllFlags().filter(f => f.userId === userId);
@@ -89,13 +92,18 @@ export function buildEvidencePacket(userId: string): EvidencePacket {
 
 // ─── Submit to backend ───────────────────────────────────
 
-export async function submitEvidencePacket(userId: string): Promise<EvidencePacket> {
-  const packet = buildEvidencePacket(userId);
+/** @deprecated Use submitWeeklySnapshot */
+export const submitEvidencePacket = submitWeeklySnapshot;
+/** @deprecated Use buildWeeklySnapshot */
+export const buildEvidencePacket = buildWeeklySnapshot;
+
+export async function submitWeeklySnapshot(userId: string): Promise<WeeklySnapshot> {
+  const packet = buildWeeklySnapshot(userId);
   packet.status = 'pending_review';
   packet.submittedAt = new Date().toISOString();
 
   const { error } = await (supabase as any)
-    .from('evidence_packets')
+    .from('weekly_snapshots')
     .insert({
       id: packet.id,
       user_id: userId,
@@ -117,7 +125,7 @@ export async function submitEvidencePacket(userId: string): Promise<EvidencePack
     });
 
   if (error) {
-    console.error('[Evidence] Failed to persist packet:', error.message);
+    console.error('[Snapshot] Failed to persist weekly snapshot:', error.message);
     // Fall back to localStorage
     const local = loadLocalPackets();
     local.unshift(packet);
@@ -129,9 +137,9 @@ export async function submitEvidencePacket(userId: string): Promise<EvidencePack
 
 // ─── Fetch from backend ──────────────────────────────────
 
-export async function getPackets(userId?: string): Promise<EvidencePacket[]> {
+export async function getPackets(userId?: string): Promise<WeeklySnapshot[]> {
   try {
-    let query = (supabase as any).from('evidence_packets').select('*').order('created_at', { ascending: false });
+    let query = (supabase as any).from('weekly_snapshots').select('*').order('created_at', { ascending: false });
     if (userId) query = query.eq('user_id', userId);
     
     const { data, error } = await query;
@@ -147,10 +155,10 @@ export async function getPackets(userId?: string): Promise<EvidencePacket[]> {
   }
 }
 
-export async function getPacketsByStatus(status: PacketStatus): Promise<EvidencePacket[]> {
+export async function getPacketsByStatus(status: PacketStatus): Promise<WeeklySnapshot[]> {
   try {
     const { data, error } = await (supabase as any)
-      .from('evidence_packets')
+      .from('weekly_snapshots')
       .select('*')
       .eq('status', status)
       .order('created_at', { ascending: false });
@@ -164,7 +172,7 @@ export async function getPacketsByStatus(status: PacketStatus): Promise<Evidence
 
 // ─── Helpers ─────────────────────────────────────────────
 
-function mapDbToPacket(row: any): EvidencePacket {
+function mapDbToPacket(row: any): WeeklySnapshot {
   return {
     id: row.id,
     userId: row.user_id,
@@ -190,11 +198,11 @@ function mapDbToPacket(row: any): EvidencePacket {
 
 const LOCAL_PACKETS_KEY = 'bd_evidence_packets';
 
-function loadLocalPackets(): EvidencePacket[] {
+function loadLocalPackets(): WeeklySnapshot[] {
   try { return JSON.parse(localStorage.getItem(LOCAL_PACKETS_KEY) || '[]'); }
   catch { return []; }
 }
 
-function saveLocalPackets(packets: EvidencePacket[]) {
+function saveLocalPackets(packets: WeeklySnapshot[]) {
   localStorage.setItem(LOCAL_PACKETS_KEY, JSON.stringify(packets));
 }
