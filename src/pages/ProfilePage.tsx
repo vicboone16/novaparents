@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getCurrentUser, signOut, checkHandshake, getMaskedBackendUrl, getMyClients, type ClientSummary } from '@/lib/dal';
 import { User, Bell, Wrench, LogOut, CheckCircle2, XCircle, Star, Pencil, Ticket, Link2, Copy } from 'lucide-react';
-import { getMyProgress, type ModuleProgress } from '@/lib/academy-dal';
+import { getMyTrainingProgress, type TrainingProgress } from '@/lib/parent-training-dal';
 import { getMyAttempts } from '@/lib/behavior-lab-dal';
 import { getDisplayName, updateDisplayName } from '@/lib/profile-dal';
 import { getMyAgencyAccess, type AgencyAccess } from '@/lib/invite-dal';
@@ -51,7 +51,7 @@ export default function ProfilePage() {
     getCurrentUser().then(async (u) => {
       setUser(u);
       if (u) {
-        Promise.all([getMyProgress(u.id), getMyAttempts(u.id)]).then(([prog, attempts]) => {
+        Promise.all([getMyTrainingProgress(u.id), getMyAttempts(u.id)]).then(([prog, attempts]) => {
           const academyXp = prog.reduce((s, p) => s + (p.xp_earned || 0), 0);
           const labXp = attempts.reduce((s, a) => s + (a.xp_earned || 0), 0);
           setTotalXp(academyXp + labXp);
