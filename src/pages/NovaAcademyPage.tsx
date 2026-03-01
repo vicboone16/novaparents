@@ -214,7 +214,7 @@ export default function NovaAcademyPage() {
     <div className="space-y-5 animate-fade-in">
       <div>
         <h2 className="font-display text-2xl font-bold text-foreground">Nova Academy™</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Small skills. Big shifts.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Complete each module at your own pace.</p>
       </div>
 
       {/* Assigned to You */}
