@@ -1,45 +1,40 @@
 /**
  * Toolkit Page
  * ────────────
- * Combines: Nova Academy, Learn modules, Library,
- * Behavior Analysis tools, and Caregiver Data.
+ * Combines: Library, Behavior Analysis tools, and Caregiver Data.
  */
 
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { BookOpen, Library, Users, Sparkles, HelpCircle, GraduationCap } from 'lucide-react';
-import CurriculumPage from './CurriculumPage';
+import { Library, Users, Sparkles, HelpCircle } from 'lucide-react';
 import LibraryPage from './LibraryPage';
-import NovaAcademyPage from './NovaAcademyPage';
 import { CaregiverDataView } from '@/components/CaregiverDataView';
 import { BehaviorTranslator } from '@/components/BehaviorTranslator';
 import { ReinforcementChecker } from '@/components/ReinforcementChecker';
 
-type Tab = 'academy' | 'learn' | 'library' | 'translator' | 'reinforcing' | 'caregiver';
+type Tab = 'translator' | 'reinforcing' | 'library' | 'caregiver';
 
 export default function ToolkitPage() {
   const [searchParams] = useSearchParams();
   const [tab, setTab] = useState<Tab>(() => {
     const urlTab = searchParams.get('tab');
-    if (urlTab && ['academy','learn','library','translator','reinforcing','caregiver'].includes(urlTab)) {
+    if (urlTab && ['translator','reinforcing','library','caregiver'].includes(urlTab)) {
       return urlTab as Tab;
     }
-    return 'academy';
+    return 'translator';
   });
 
   useEffect(() => {
     const urlTab = searchParams.get('tab');
-    if (urlTab && ['academy','learn','library','translator','reinforcing','caregiver'].includes(urlTab)) {
+    if (urlTab && ['translator','reinforcing','library','caregiver'].includes(urlTab)) {
       setTab(urlTab as Tab);
     }
   }, [searchParams]);
 
   const tabs: { key: Tab; label: string; icon: React.ElementType }[] = [
-    { key: 'academy', label: 'Academy', icon: GraduationCap },
-    { key: 'learn', label: 'Learn', icon: BookOpen },
-    { key: 'library', label: 'What Do I Do…', icon: Library },
     { key: 'translator', label: 'Translator', icon: Sparkles },
     { key: 'reinforcing', label: 'Reinforcing?', icon: HelpCircle },
+    { key: 'library', label: 'What Do I Do…', icon: Library },
     { key: 'caregiver', label: 'Caregiver Data', icon: Users },
   ];
 
@@ -47,7 +42,7 @@ export default function ToolkitPage() {
     <div className="space-y-4">
       <div>
         <h2 className="font-display text-2xl font-bold text-foreground">Coach Toolkit</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Learn strategies, analyze behaviors, and view caregiver data.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Analyze behaviors and view caregiver data.</p>
       </div>
 
       {/* Tab switcher */}
@@ -69,11 +64,9 @@ export default function ToolkitPage() {
 
       {/* Tab content */}
       <div className="animate-fade-in">
-        {tab === 'academy' && <NovaAcademyPage />}
-        {tab === 'learn' && <CurriculumPage />}
-        {tab === 'library' && <LibraryPage />}
         {tab === 'translator' && <BehaviorTranslator />}
         {tab === 'reinforcing' && <ReinforcementChecker />}
+        {tab === 'library' && <LibraryPage />}
         {tab === 'caregiver' && <CaregiverDataView />}
       </div>
     </div>
