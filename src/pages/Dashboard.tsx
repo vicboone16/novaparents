@@ -7,16 +7,14 @@
 
 import { useEffect, useState } from 'react';
 import {
-  BookOpen, PenLine, Lightbulb, ArrowRight, Heart, Sparkles,
-  Package, Send, CheckCircle2, AlertTriangle, Clock, Zap, Brain,
-  Gamepad2,
+  BookOpen, PenLine, Lightbulb, ArrowRight,
+  Package, CheckCircle2, AlertTriangle, Clock, Zap, Brain,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getCurrentUser } from '@/lib/dal';
 import { getDisplayName } from '@/lib/profile-dal';
 import { Button } from '@/components/ui/button';
-import { getPackets, submitEvidencePacket, type EvidencePacket, type PacketStatus } from '@/lib/evidence';
-import { EvidencePacketPreview } from '@/components/EvidencePacketPreview';
+import { getSnapshotsForUser, type WeeklySnapshot, type SnapshotStatus } from '@/lib/snapshots';
 import { getMyProgress } from '@/lib/academy-dal';
 import { getStreak, recordActivity, getStreakMilestone, checkStreakRecovery, recoverStreak, STREAK_RECOVERY_COST, type UserStreak } from '@/lib/streaks';
 import { useToast } from '@/hooks/use-toast';
@@ -30,13 +28,11 @@ const GROWTH_LEVELS = [
   { level: 5, name: 'Confident Coach', xpNeeded: 1000, emoji: '🌟' },
 ];
 
-const statusConfig: Record<PacketStatus, { label: string; cls: string; icon: React.ElementType }> = {
-  draft: { label: 'Draft', cls: 'bg-muted text-muted-foreground', icon: Package },
-  submitted: { label: 'Submitted', cls: 'bg-primary/10 text-primary', icon: Send },
+const snapshotStatusConfig: Record<SnapshotStatus, { label: string; cls: string; icon: React.ElementType }> = {
+  saved: { label: 'Saved', cls: 'bg-muted text-muted-foreground', icon: Package },
   pending_review: { label: 'Pending Review', cls: 'bg-warning/10 text-warning', icon: Clock },
-  approved: { label: 'Approved', cls: 'bg-success/10 text-success', icon: CheckCircle2 },
-  needs_followup: { label: 'Needs Follow-up', cls: 'bg-secondary/10 text-secondary', icon: AlertTriangle },
-  rejected: { label: 'Rejected', cls: 'bg-destructive/10 text-destructive', icon: AlertTriangle },
+  reviewed: { label: 'Reviewed', cls: 'bg-success/10 text-success', icon: CheckCircle2 },
+  returned: { label: 'Returned', cls: 'bg-secondary/10 text-secondary', icon: AlertTriangle },
 };
 
 function getLocalLessonCount(): number {
@@ -80,9 +76,8 @@ function getRecentInsight(): string {
 export default function Dashboard() {
   const [userName, setUserName] = useState('');
   const [userId, setUserId] = useState('');
-  const [packets, setPackets] = useState<EvidencePacket[]>([]);
+  const [snapshots, setSnapshots] = useState<WeeklySnapshot[]>([]);
   const [submitting, setSubmitting] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -111,7 +106,7 @@ export default function Dashboard() {
         const name = await getDisplayName(user.id);
         setUserName(name || email.split('@')[0] || 'there');
         setUserId(user.id);
-        getPackets(user.id).then(setPackets);
+        setSnapshots(getSnapshotsForUser(user.id));
 
         // Load DB-backed academy progress
         try {
@@ -153,21 +148,8 @@ export default function Dashboard() {
     navigate('/toolkit?tab=translator');
   }
 
-  async function handleSubmitPacket() {
-    if (!userId) return;
-    setSubmitting(true);
-    try {
-      await submitEvidencePacket(userId);
-      const updated = await getPackets(userId);
-      setPackets(updated);
-    } catch (err) {
-      console.error('Packet submission failed:', err);
-    }
-    setSubmitting(false);
-  }
-
-  const latestPacket = packets[0] || null;
-  const followupPacket = packets.find(p => p.status === 'needs_followup');
+  const latestSnapshot = snapshots[0] || null;
+  const returnedSnapshot = snapshots.find(s => s.status === 'returned');
   const totalModules = dbModulesCompleted + localLessons;
 
   // ─── First-time: 2-card onboarding ────────────────
@@ -277,8 +259,8 @@ export default function Dashboard() {
             <p className="text-[9px] opacity-80">Lab</p>
           </div>
           <div className="flex-1 rounded-xl bg-primary-foreground/10 p-2.5 text-center">
-            <p className="font-display text-lg font-bold">{latestPacket ? (latestPacket.behaviorLogsCount + latestPacket.frequencyLogsCount + latestPacket.durationLogsCount) : 0}</p>
-            <p className="text-[9px] opacity-80">Logs</p>
+            <p className="font-display text-lg font-bold">{snapshots.length}</p>
+            <p className="text-[9px] opacity-80">Snapshots</p>
           </div>
         </div>
       </section>
@@ -326,25 +308,19 @@ export default function Dashboard() {
         );
       })()}
 
-      {/* Follow-up notice */}
-      {followupPacket && (
+      {/* Returned snapshot notice */}
+      {returnedSnapshot && (
         <section className="rounded-xl border border-secondary/30 bg-secondary/5 p-4 space-y-2">
           <div className="flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-secondary" />
-            <h3 className="font-display font-bold text-foreground text-sm">Follow-up Needed</h3>
+            <h3 className="font-display font-bold text-foreground text-sm">Snapshot Returned</h3>
           </div>
-          {followupPacket.feedbackMessage && (
-            <p className="text-sm text-foreground">{followupPacket.feedbackMessage}</p>
-          )}
-          {followupPacket.followupItems.length > 0 && (
-            <ul className="space-y-1 mt-1">
-              {followupPacket.followupItems.map((item, i) => (
-                <li key={i} className="flex items-start gap-2 text-sm text-foreground">
-                  <span className="text-secondary font-bold">•</span> {item}
-                </li>
-              ))}
-            </ul>
-          )}
+          <p className="text-sm text-muted-foreground">
+            Your support team returned a snapshot for the week of {new Date(returnedSnapshot.weekStart + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}.
+          </p>
+          <Link to="/insights">
+            <Button size="sm" variant="outline" className="w-full gap-1.5 mt-1">View in My Insights</Button>
+          </Link>
         </section>
       )}
 
@@ -392,66 +368,47 @@ export default function Dashboard() {
         <p className="text-sm text-foreground italic">"{getRecentInsight()}"</p>
       </section>
 
-      {/* Evidence Packet Status */}
-      <section className="rounded-xl border border-border bg-card p-4 shadow-card space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Package className="h-4 w-4 text-primary" />
-            <span className="text-xs font-semibold uppercase tracking-wide text-primary">Evidence Packet</span>
-          </div>
-          {latestPacket && (
-            <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${statusConfig[latestPacket.status].cls}`}>
-              {statusConfig[latestPacket.status].label}
-            </span>
-          )}
-        </div>
-
-        {latestPacket ? (
-          <div className="space-y-2">
-            <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="rounded-lg bg-muted/50 p-2">
-                <p className="font-display text-lg font-bold text-foreground">{latestPacket.lessonsCompleted.length}</p>
-                <p className="text-[10px] text-muted-foreground">Lessons</p>
-              </div>
-              <div className="rounded-lg bg-muted/50 p-2">
-                <p className="font-display text-lg font-bold text-foreground">{latestPacket.behaviorLogsCount + latestPacket.frequencyLogsCount + latestPacket.durationLogsCount}</p>
-                <p className="text-[10px] text-muted-foreground">Data Logs</p>
-              </div>
-              <div className="rounded-lg bg-muted/50 p-2">
-                <p className="font-display text-lg font-bold text-foreground">{latestPacket.integrityScore}</p>
-                <p className="text-[10px] text-muted-foreground">Score</p>
-              </div>
+      {/* Weekly Snapshot */}
+      <Link to="/insights" className="block">
+        <section className="rounded-xl border border-border bg-card p-4 shadow-card space-y-3 hover:shadow-soft transition-all">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Package className="h-4 w-4 text-primary" />
+              <span className="text-xs font-semibold uppercase tracking-wide text-primary">Weekly Snapshot</span>
             </div>
-            {latestPacket.submittedAt && (
-              <p className="text-[10px] text-muted-foreground">Submitted {new Date(latestPacket.submittedAt).toLocaleDateString()}</p>
+            {latestSnapshot && (
+              <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${snapshotStatusConfig[latestSnapshot.status].cls}`}>
+                {snapshotStatusConfig[latestSnapshot.status].label}
+              </span>
             )}
           </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">Complete lessons and log data, then submit your Evidence Packet for review.</p>
-        )}
 
-        <Button
-          size="sm"
-          className="w-full gap-1.5"
-          onClick={() => setShowPreview(true)}
-          disabled={submitting}
-        >
-          <Send className="h-4 w-4" />
-          {submitting ? 'Submitting…' : latestPacket ? 'Submit New Packet' : 'Submit Evidence Packet'}
-        </Button>
-      </section>
+          {latestSnapshot ? (
+            <div className="space-y-2">
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="rounded-lg bg-muted/50 p-2">
+                  <p className="font-display text-lg font-bold text-foreground">{latestSnapshot.abcCount}</p>
+                  <p className="text-[10px] text-muted-foreground">ABC</p>
+                </div>
+                <div className="rounded-lg bg-muted/50 p-2">
+                  <p className="font-display text-lg font-bold text-foreground">{latestSnapshot.frequencyTotal}</p>
+                  <p className="text-[10px] text-muted-foreground">Frequency</p>
+                </div>
+                <div className="rounded-lg bg-muted/50 p-2">
+                  <p className="font-display text-lg font-bold text-foreground">{latestSnapshot.intensityAvg > 0 ? latestSnapshot.intensityAvg.toFixed(1) : '—'}</p>
+                  <p className="text-[10px] text-muted-foreground">Avg Intensity</p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Create your first Weekly Snapshot to track patterns and share progress.</p>
+          )}
 
-      {/* Evidence Packet Preview */}
-      <EvidencePacketPreview
-        userId={userId}
-        open={showPreview}
-        onClose={() => setShowPreview(false)}
-        onConfirmSubmit={async () => {
-          await handleSubmitPacket();
-          setShowPreview(false);
-        }}
-        submitting={submitting}
-      />
+          <div className="flex items-center justify-center gap-1.5 text-xs font-semibold text-primary">
+            <ArrowRight className="h-3.5 w-3.5" /> View My Insights
+          </div>
+        </section>
+      </Link>
 
       {/* Quick Actions */}
       <section>
@@ -459,7 +416,7 @@ export default function Dashboard() {
         <div className="grid grid-cols-3 gap-3">
           {[
             { to: '/log', icon: PenLine, label: 'Log Data', color: 'bg-secondary/10 text-secondary' },
-            { to: '/academy', icon: BookOpen, label: 'Continue Learning', color: 'bg-primary/10 text-primary' },
+            { to: '/insights/new', icon: Package, label: 'Weekly Snapshot', color: 'bg-primary/10 text-primary' },
             { to: '/toolkit?tab=reinforcing', icon: Lightbulb, label: 'Is This Reinforcing?', color: 'bg-accent/10 text-accent' },
           ].map((action, i) => (
             <Link
@@ -475,24 +432,6 @@ export default function Dashboard() {
           ))}
         </div>
       </section>
-
-      {/* Packet History */}
-      {packets.length > 1 && (
-        <section className="rounded-xl border border-border bg-card p-4 shadow-card">
-          <h3 className="font-display font-bold text-foreground text-sm mb-3">Packet History</h3>
-          <div className="space-y-2">
-            {packets.slice(0, 5).map(p => {
-              const cfg = statusConfig[p.status];
-              return (
-                <div key={p.id} className="flex items-center justify-between rounded-lg bg-muted/30 px-3 py-2">
-                  <span className="text-xs text-muted-foreground">{new Date(p.createdAt).toLocaleDateString()}</span>
-                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${cfg.cls}`}>{cfg.label}</span>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
     </div>
   );
 }
