@@ -53,7 +53,7 @@ export function RedeemCodeForm({ redeemedFrom, onSuccess, onCancel, compact }: R
       {!compact && (
         <div className="flex items-center gap-2 mb-1">
           <Ticket className="h-4 w-4 text-primary" />
-          <p className="text-sm font-semibold text-foreground">Redeem Invite Code</p>
+          <p className="text-sm font-semibold text-foreground">Connect to Agency</p>
         </div>
       )}
       <p className="text-xs text-muted-foreground">
@@ -70,7 +70,7 @@ export function RedeemCodeForm({ redeemedFrom, onSuccess, onCancel, compact }: R
           disabled={loading}
         />
         <Button type="submit" disabled={loading || !code.trim()} size={compact ? 'sm' : 'default'}>
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Redeem'}
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Connect'}
         </Button>
       </div>
       {error && <p className="text-sm text-destructive">{error}</p>}

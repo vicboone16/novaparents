@@ -232,6 +232,7 @@ export default function ProfilePage() {
               setShowRedeem(false);
               getMyAgencyAccess().then(setAgencyAccess);
               getMyClients().then(setClients);
+              setTimeout(() => navigate('/'), 1500);
             }}
             compact
           />
@@ -251,7 +252,7 @@ export default function ProfilePage() {
             ))}
           </ul>
         ) : (
-          <p className="text-sm text-muted-foreground">No learners linked yet. Ask your Agency/BCBA to connect your account.</p>
+          <p className="text-sm text-muted-foreground">Your account is not linked to a learner yet.</p>
         )}
       </div>
 
