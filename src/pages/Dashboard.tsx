@@ -17,7 +17,8 @@ import { Button } from '@/components/ui/button';
 import { getPackets, submitEvidencePacket, type EvidencePacket, type PacketStatus } from '@/lib/evidence';
 import { EvidencePacketPreview } from '@/components/EvidencePacketPreview';
 import { getMyProgress } from '@/lib/academy-dal';
-import { getStreak, recordActivity, type UserStreak } from '@/lib/streaks';
+import { getStreak, recordActivity, getStreakMilestone, type UserStreak } from '@/lib/streaks';
+import { useToast } from '@/hooks/use-toast';
 
 const ONBOARDING_KEY = 'bd_onboarding_complete';
 const GROWTH_LEVELS = [
@@ -82,6 +83,7 @@ export default function Dashboard() {
   const [submitting, setSubmitting] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   // Progress stats
   const [dbModulesCompleted, setDbModulesCompleted] = useState(0);
@@ -116,15 +118,22 @@ export default function Dashboard() {
           setTotalXp(progress.reduce((sum, p) => sum + (p.xp_earned || 0), 0));
         } catch { /* ignore */ }
 
-        // Load & record streak (visiting home with prior activity counts)
+        // Load & record streak
         try {
           const s = await getStreak(user.id);
           setStreak(s);
-          // Record activity for today if they have any meaningful data
           const hasActivity = localLessons > 0 || labGames > 0;
           if (hasActivity) {
             const updated = await recordActivity(user.id);
             setStreak(updated);
+            // Check for milestone
+            const milestone = getStreakMilestone(updated.currentStreak);
+            if (milestone) {
+              toast({
+                title: `${milestone.emoji} Streak Milestone!`,
+                description: milestone.message,
+              });
+            }
           }
         } catch { /* ignore */ }
       }
