@@ -4,26 +4,37 @@
  */
 
 import { useState, useMemo } from 'react';
-import { Gamepad2, Flame, Star, Play, ArrowRight, CheckCircle2, Lock, BarChart3 } from 'lucide-react';
-import { LAB_GAMES, SKILL_PACKS, GROWTH_LEVELS, getGrowthLevel, getNextLevel } from '@/lib/lab';
-import { getLocalAttempts, getTotalXp, getStreakDays, getBestScore, getSkillMastery } from '@/lib/lab/lab-store';
+import { Gamepad2, Flame, Play, ArrowRight, CheckCircle2, Lock, Zap, Timer } from 'lucide-react';
+import { LAB_GAMES, SKILL_PACKS, GROWTH_LEVELS, DAILY_DRILL_POOL, MASTERY_SKILLS, getGrowthLevel, getNextLevel } from '@/lib/lab';
+import {
+  getLocalAttempts, getTotalXp, getStreakDays, getBestScore, getSkillMastery,
+  getUniqueGamesCompleted, getAvgScore, getStreakDaysWithin, getRecentGameIds,
+  getMastery, hasActiveStreak,
+} from '@/lib/lab/lab-store';
 import type { LabGameConfig } from '@/lib/lab/lab-types';
 import LabGameEngine from '@/components/lab/LabGameEngine';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
-// ─── Unlock logic ───────────────────────
+// ─── Stage Gating ───────────────────────
 function useUnlockState() {
   const attempts = getLocalAttempts();
-  const uniqueGames = new Set(attempts.map(a => a.game_id)).size;
-  // Stage 2 unlock: 3+ unique games completed
+  const uniqueGames = getUniqueGamesCompleted();
+
+  // Stage 2: 3+ games completed + 1 translator run (we check games only for now)
+  // OR academy module 1 completed (checked via localStorage flag)
   const stage2 = uniqueGames >= 3;
-  // Stage 3 unlock: 10+ unique games + 500+ XP
-  const totalXp = getTotalXp();
-  const stage3 = uniqueGames >= 10 && totalXp >= 500;
-  return { stage2, stage3 };
+
+  // Stage 3: 5 streak days within 10 days + 15 unique games + avg 70%+ over 8+ attempts
+  const streakWithin = getStreakDaysWithin(10);
+  const avgScore = getAvgScore(8);
+  const stage3 = streakWithin >= 5 && uniqueGames >= 15 && avgScore >= 70;
+
+  return { stage2, stage3, uniqueGames, streakWithin, avgScore };
 }
 
 export default function BehaviorLabPage() {
   const [activeGame, setActiveGame] = useState<LabGameConfig | null>(null);
+  const [showUnlockSheet, setShowUnlockSheet] = useState<'stage2' | 'stage3' | null>(null);
   const unlocks = useUnlockState();
 
   const totalXp = getTotalXp();
@@ -31,31 +42,43 @@ export default function BehaviorLabPage() {
   const attempts = getLocalAttempts();
   const level = getGrowthLevel(totalXp);
   const next = getNextLevel(totalXp);
+  const mastery = getMastery();
 
-  // Daily drills: pick 3 unlocked games pseudo-randomly seeded by date
+  // Daily drills: 3 games from the pool, avoiding recent plays, preferring weak skills
   const dailyDrills = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
     const seed = today.split('-').reduce((s, n) => s + parseInt(n), 0);
-    const available = LAB_GAMES.filter(g =>
-      g.stage === 1 || (g.stage === 2 && unlocks.stage2) || (g.stage === 3 && unlocks.stage3)
-    );
-    const shuffled = [...available].sort((a, b) => {
-      const ha = hashStr(a.id + today + seed) % 1000;
-      const hb = hashStr(b.id + today + seed) % 1000;
-      return ha - hb;
-    });
-    return shuffled.slice(0, 3);
-  }, [unlocks.stage2, unlocks.stage3]);
+    const recentIds = getRecentGameIds(2);
+    const pool = DAILY_DRILL_POOL
+      .map(id => LAB_GAMES.find(g => g.id === id)!)
+      .filter(Boolean)
+      .filter(g => !recentIds.includes(g.id));
 
-  // Next drill after current
+    // Sort by lowest mastery first, then deterministic hash
+    const sorted = [...pool].sort((a, b) => {
+      const ma = Math.max(...a.skill_tags.map(t => mastery[t] || 0), 0);
+      const mb = Math.max(...b.skill_tags.map(t => mastery[t] || 0), 0);
+      if (ma !== mb) return ma - mb;
+      return hashStr(a.id + today + seed) - hashStr(b.id + today + seed);
+    });
+
+    // If not enough after filtering recent, backfill from full pool
+    if (sorted.length < 3) {
+      const full = DAILY_DRILL_POOL.map(id => LAB_GAMES.find(g => g.id === id)!).filter(Boolean);
+      const extra = full.filter(g => !sorted.find(s => s.id === g.id));
+      sorted.push(...extra);
+    }
+    return sorted.slice(0, 3);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function handleNext() {
     if (!activeGame) return;
     const available = LAB_GAMES.filter(g =>
       g.stage === 1 || (g.stage === 2 && unlocks.stage2) || (g.stage === 3 && unlocks.stage3)
     );
     const idx = available.findIndex(g => g.id === activeGame.id);
-    const next = available[(idx + 1) % available.length];
-    setActiveGame(next);
+    setActiveGame(available[(idx + 1) % available.length]);
   }
 
   // ─── Active game ──────────────────────
@@ -70,17 +93,13 @@ export default function BehaviorLabPage() {
   }
 
   // ─── Lab Home ─────────────────────────
-  const stage1Games = LAB_GAMES.filter(g => g.stage === 1);
-  const stage2Games = LAB_GAMES.filter(g => g.stage === 2);
-  const stage3Games = LAB_GAMES.filter(g => g.stage === 3);
-
   return (
     <div className="space-y-5 animate-fade-in">
       {/* Header */}
       <div className="text-center space-y-1">
-        <h2 className="font-display text-2xl font-bold text-foreground flex items-center justify-center gap-2">
+        <h1 className="font-display text-2xl font-bold text-foreground flex items-center justify-center gap-2">
           <Gamepad2 className="h-6 w-6 text-primary" /> Behavior Lab™
-        </h2>
+        </h1>
         <p className="text-sm text-muted-foreground">Short drills. Big learning.</p>
       </div>
 
@@ -99,7 +118,7 @@ export default function BehaviorLabPage() {
           </div>
           <div>
             <p className="font-display text-xl font-bold">{attempts.length}</p>
-            <p className="text-[10px] opacity-80">Attempts</p>
+            <p className="text-[10px] opacity-80">Games</p>
           </div>
           <div>
             <p className="text-lg">{level.emoji}</p>
@@ -122,8 +141,8 @@ export default function BehaviorLabPage() {
         )}
       </div>
 
-      {/* Daily Drills */}
-      <Section title="Daily Drills" subtitle="3 quick games for today">
+      {/* ─── Daily Drills ─────────────────── */}
+      <Section title="Daily Drills" subtitle="3 games picked for you today">
         <div className="space-y-2">
           {dailyDrills.map(game => (
             <GameCard key={game.id} game={game} onPlay={() => setActiveGame(game)} />
@@ -131,89 +150,89 @@ export default function BehaviorLabPage() {
         </div>
       </Section>
 
-      {/* Skill Packs */}
+      {/* ─── Skill Packs ─────────────────── */}
       <Section title="Skill Packs" subtitle="Organized by skill area">
-        <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-2">
           {SKILL_PACKS.map(pack => {
-            const locked = (pack.stage === 2 && !unlocks.stage2) || (pack.stage === 3 && !unlocks.stage3);
-            const mastery = getSkillMastery(pack.tags);
-            const packGames = LAB_GAMES.filter(g => g.skill_tags.some(t => pack.tags.includes(t)));
+            const locked = (pack.locked_until_stage === 2 && !unlocks.stage2) ||
+              (pack.locked_until_stage === 3 && !unlocks.stage3);
+            const packGames = pack.game_ids.map(id => LAB_GAMES.find(g => g.id === id)!).filter(Boolean);
+            const packMastery = getSkillMastery(packGames.flatMap(g => g.skill_tags));
+
             return (
               <button
                 key={pack.id}
                 onClick={() => {
-                  if (!locked && packGames.length > 0) setActiveGame(packGames[0]);
+                  if (locked) {
+                    setShowUnlockSheet(pack.locked_until_stage === 3 ? 'stage3' : 'stage2');
+                  } else if (packGames.length > 0) {
+                    setActiveGame(packGames[0]);
+                  }
                 }}
-                disabled={locked}
-                className={`rounded-xl border p-3 text-left transition-all ${
+                className={`w-full flex items-center gap-3 rounded-xl border p-3.5 text-left transition-all ${
                   locked
-                    ? 'border-border bg-muted/30 opacity-60'
+                    ? 'border-border bg-muted/20 opacity-70'
                     : 'border-border bg-card shadow-card hover:border-primary/30 hover:shadow-soft'
                 }`}
               >
-                <div className="flex items-center justify-between mb-1">
-                  <p className="text-sm font-semibold text-foreground">{pack.label}</p>
-                  {locked && <Lock className="h-3.5 w-3.5 text-muted-foreground" />}
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+                  locked ? 'bg-muted' : 'bg-primary/10'
+                }`}>
+                  {locked ? (
+                    <Lock className="h-4.5 w-4.5 text-muted-foreground" />
+                  ) : (
+                    <Zap className="h-4.5 w-4.5 text-primary" />
+                  )}
                 </div>
-                <p className="text-[10px] text-muted-foreground">{packGames.length} games</p>
-                {!locked && mastery > 0 && (
-                  <div className="mt-2">
-                    <div className="h-1 rounded-full bg-muted overflow-hidden">
-                      <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${mastery}%` }} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-foreground">{pack.title}</p>
+                  <p className="text-[10px] text-muted-foreground">{pack.subtitle} · {packGames.length} games</p>
+                  {!locked && packMastery > 0 && (
+                    <div className="mt-1.5 flex items-center gap-2">
+                      <div className="flex-1 h-1 rounded-full bg-muted overflow-hidden">
+                        <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${packMastery}%` }} />
+                      </div>
                     </div>
-                    <p className="text-[9px] text-muted-foreground mt-0.5">{mastery}% mastery</p>
-                  </div>
-                )}
-                {locked && (
-                  <p className="text-[9px] text-muted-foreground mt-1">Unlock by practice</p>
-                )}
+                  )}
+                  {locked && (
+                    <p className="text-[9px] text-muted-foreground mt-0.5">Tap to see how to unlock</p>
+                  )}
+                </div>
+                <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
               </button>
             );
           })}
         </div>
       </Section>
 
-      {/* Stage sections */}
-      <Section title="Foundations" subtitle="Stage 1 · Core skills">
-        <div className="space-y-2">
-          {stage1Games.map(game => (
-            <GameCard key={game.id} game={game} onPlay={() => setActiveGame(game)} />
-          ))}
-        </div>
-      </Section>
-
-      <Section title="Skill Building" subtitle={unlocks.stage2 ? 'Stage 2 · Unlocked' : 'Stage 2 · Complete 3 games to unlock'}>
-        {unlocks.stage2 ? (
-          <div className="space-y-2">
-            {stage2Games.map(game => (
-              <GameCard key={game.id} game={game} onPlay={() => setActiveGame(game)} />
-            ))}
-          </div>
-        ) : (
-          <LockedSection message="Complete 3 different games to unlock Skill Building." />
-        )}
-      </Section>
-
-      <Section title="Advanced Coaching" subtitle={unlocks.stage3 ? 'Stage 3 · Unlocked' : 'Stage 3 · Consistent practice unlocks this'}>
+      {/* ─── Challenge Mode ──────────────── */}
+      <Section title="Challenge Mode" subtitle="Timed fluency practice">
         {unlocks.stage3 ? (
-          <div className="space-y-2">
-            {stage3Games.map(game => (
-              <GameCard key={game.id} game={game} onPlay={() => setActiveGame(game)} />
-            ))}
-          </div>
+          <GameCard
+            game={LAB_GAMES.find(g => g.id === 'micro_scenario_drills_30s')!}
+            onPlay={() => setActiveGame(LAB_GAMES.find(g => g.id === 'micro_scenario_drills_30s')!)}
+          />
         ) : (
-          <LockedSection message="Keep practicing to unlock Advanced Coaching Mode." />
+          <button
+            onClick={() => setShowUnlockSheet('stage3')}
+            className="w-full rounded-xl border border-border bg-muted/20 p-5 text-center transition-all hover:bg-muted/30"
+          >
+            <Lock className="h-7 w-7 text-muted-foreground mx-auto mb-2 opacity-50" />
+            <p className="text-sm font-semibold text-foreground">Advanced Coaching Mode</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">Unlocks with consistent practice</p>
+          </button>
         )}
       </Section>
 
-      {/* Your Progress */}
-      <Section title="Your Progress" subtitle="Growth path">
-        <div className="rounded-xl border border-border bg-card p-4 shadow-card space-y-3">
+      {/* ─── Your Progress ───────────────── */}
+      <Section title="Your Progress" subtitle="Growth path + skill mastery">
+        {/* Growth Path */}
+        <div className="rounded-xl border border-border bg-card p-4 shadow-card space-y-2.5 mb-3">
           {GROWTH_LEVELS.map((gl) => {
             const isCurrent = gl.level === level.level;
             const isReached = totalXp >= gl.xp;
             return (
-              <div key={gl.level} className={`flex items-center gap-3 ${isCurrent ? '' : 'opacity-60'}`}>
+              <div key={gl.level} className={`flex items-center gap-3 ${isCurrent ? '' : 'opacity-50'}`}>
                 <span className="text-lg">{gl.emoji}</span>
                 <div className="flex-1">
                   <p className={`text-sm font-semibold ${isCurrent ? 'text-primary' : 'text-foreground'}`}>
@@ -226,7 +245,55 @@ export default function BehaviorLabPage() {
             );
           })}
         </div>
+
+        {/* Mastery Bars */}
+        <div className="rounded-xl border border-border bg-card p-4 shadow-card space-y-2">
+          <p className="text-xs font-semibold text-foreground mb-1">Skill Mastery</p>
+          {MASTERY_SKILLS.map(skill => {
+            const val = Math.round((mastery[skill.key] || 0) * 100);
+            if (val === 0) return null;
+            return (
+              <div key={skill.key} className="flex items-center gap-2">
+                <p className="text-[10px] text-muted-foreground w-24 truncate">{skill.label}</p>
+                <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-primary transition-all"
+                    style={{ width: `${val}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+          {Object.keys(mastery).length === 0 && (
+            <p className="text-[10px] text-muted-foreground">Play games to build skill mastery.</p>
+          )}
+        </div>
       </Section>
+
+      {/* ─── Unlock Requirements Sheet ───── */}
+      <Dialog open={!!showUnlockSheet} onOpenChange={() => setShowUnlockSheet(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display">
+              {showUnlockSheet === 'stage3' ? 'Advanced Coaching Mode' : 'Skill Building'}
+            </DialogTitle>
+          </DialogHeader>
+          {showUnlockSheet === 'stage2' && (
+            <div className="space-y-3 text-sm text-muted-foreground">
+              <p>Complete <strong>3 games</strong> to unlock Skill Building drills.</p>
+              <UnlockProgress label="Games completed" current={unlocks.uniqueGames} target={3} />
+            </div>
+          )}
+          {showUnlockSheet === 'stage3' && (
+            <div className="space-y-3 text-sm text-muted-foreground">
+              <p>Consistent practice unlocks Advanced Coaching Mode.</p>
+              <UnlockProgress label="Unique games" current={unlocks.uniqueGames} target={15} />
+              <UnlockProgress label="Active days (last 10)" current={unlocks.streakWithin} target={5} />
+              <UnlockProgress label="Avg score (8+ games)" current={unlocks.avgScore} target={70} suffix="%" />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -235,13 +302,13 @@ export default function BehaviorLabPage() {
 
 function Section({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
   return (
-    <div>
+    <section>
       <div className="mb-2">
-        <h3 className="font-display text-sm font-bold text-foreground">{title}</h3>
+        <h2 className="font-display text-sm font-bold text-foreground">{title}</h2>
         {subtitle && <p className="text-[10px] text-muted-foreground">{subtitle}</p>}
       </div>
       {children}
-    </div>
+    </section>
   );
 }
 
@@ -269,7 +336,9 @@ function GameCard({ game, onPlay }: { game: LabGameConfig; onPlay: () => void })
               <span key={i} className="h-1.5 w-1.5 rounded-full bg-primary/40" />
             ))}
           </span>
-          <span className="text-[10px] text-muted-foreground">~{Math.ceil(game.est_seconds / 60)}m</span>
+          <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+            <Timer className="h-2.5 w-2.5" /> ~{Math.ceil(game.est_seconds / 60)}m
+          </span>
           {best !== null && (
             <span className="text-[10px] text-muted-foreground">Best: {best}%</span>
           )}
@@ -280,21 +349,33 @@ function GameCard({ game, onPlay }: { game: LabGameConfig; onPlay: () => void })
   );
 }
 
-function LockedSection({ message }: { message: string }) {
+function UnlockProgress({ label, current, target, suffix = '' }: {
+  label: string; current: number; target: number; suffix?: string;
+}) {
+  const pct = Math.min(100, (current / target) * 100);
+  const done = current >= target;
   return (
-    <div className="rounded-xl border border-border bg-muted/20 p-6 text-center">
-      <Lock className="h-8 w-8 text-muted-foreground mx-auto mb-2 opacity-40" />
-      <p className="text-xs text-muted-foreground">{message}</p>
+    <div className="space-y-1">
+      <div className="flex items-center justify-between text-xs">
+        <span>{label}</span>
+        <span className={done ? 'text-success font-semibold' : ''}>
+          {current}{suffix} / {target}{suffix} {done && '✓'}
+        </span>
+      </div>
+      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-all ${done ? 'bg-success' : 'bg-primary'}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
     </div>
   );
 }
 
-// Simple string hash for daily drill seeding
 function hashStr(str: string): number {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
     hash |= 0;
   }
   return Math.abs(hash);

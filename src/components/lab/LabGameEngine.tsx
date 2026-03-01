@@ -9,7 +9,7 @@ import { ArrowLeft, Play, CheckCircle2, RotateCcw, ArrowRight, Lightbulb, Info }
 import { Button } from '@/components/ui/button';
 import type { LabGameConfig, LabQuestion, LabAttemptLocal } from '@/lib/lab/lab-types';
 import { calculateXp } from '@/lib/lab/lab-types';
-import { saveLocalAttempt } from '@/lib/lab/lab-store';
+import { saveLocalAttempt, getStreakDays } from '@/lib/lab/lab-store';
 
 interface Props {
   game: LabGameConfig;
@@ -77,7 +77,8 @@ export default function LabGameEngine({ game, onBack, onNext }: Props) {
     });
 
     const pct = totalQ > 0 ? Math.round((correct / totalQ) * 100) : 100;
-    const xp = calculateXp(pct);
+    const currentStreak = getStreakDays();
+    const xp = calculateXp(pct, game.difficulty, currentStreak > 0);
 
     setScorePercent(pct);
     setXpEarned(xp);
