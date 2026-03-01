@@ -15,7 +15,7 @@ import { getCurrentUser } from '@/lib/dal';
 import { getDisplayName } from '@/lib/profile-dal';
 import { Button } from '@/components/ui/button';
 import { fetchSnapshots, getStatusDisplay, type WeeklySnapshot, type SnapshotStatus } from '@/lib/snapshots';
-import { getMyProgress } from '@/lib/academy-dal';
+import { getMyTrainingProgress } from '@/lib/parent-training-dal';
 import { getStreak, recordActivity, getStreakMilestone, checkStreakRecovery, recoverStreak, STREAK_RECOVERY_COST, type UserStreak } from '@/lib/streaks';
 import { useToast } from '@/hooks/use-toast';
 
@@ -111,7 +111,7 @@ export default function Dashboard() {
 
         // Load DB-backed academy progress
         try {
-          const progress = await getMyProgress(user.id);
+          const progress = await getMyTrainingProgress(user.id);
           const completed = progress.filter(p => p.status === 'completed');
           setDbModulesCompleted(completed.length);
           setTotalXp(progress.reduce((sum, p) => sum + (p.xp_earned || 0), 0));
