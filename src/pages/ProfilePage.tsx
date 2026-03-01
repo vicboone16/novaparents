@@ -248,8 +248,35 @@ export default function ProfilePage() {
             ))}
           </ul>
         ) : (
-          <p className="text-sm text-muted-foreground">Your assigned Learners will appear here once connected.</p>
+          <p className="text-sm text-muted-foreground">No learners linked yet. Ask your Agency/BCBA to connect your account.</p>
         )}
+      </div>
+
+      {/* Coach Email (read-only) */}
+      <div className="rounded-xl border border-border bg-card p-4 shadow-card space-y-2">
+        <h3 className="font-display font-bold text-foreground text-sm">Coach Email</h3>
+        <p className="text-xs text-muted-foreground">Share this email with your Agency or BCBA so they can link your account.</p>
+        <div className="flex items-center gap-2">
+          <Input
+            value={user?.email || ''}
+            readOnly
+            className="flex-1 bg-muted/50 text-sm font-mono"
+          />
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              navigator.clipboard.writeText(user?.email || '');
+              setCopied(true);
+              setTimeout(() => setCopied(false), 2000);
+              toast({ title: 'Copied!', description: 'Email copied to clipboard.' });
+            }}
+            className="shrink-0 gap-1"
+          >
+            <Copy className="h-3.5 w-3.5" />
+            {copied ? 'Copied' : 'Copy'}
+          </Button>
+        </div>
       </div>
 
       {/* Notifications */}

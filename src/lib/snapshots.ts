@@ -138,21 +138,41 @@ export async function checkAgencyLink(): Promise<AgencyLinkInfo> {
   }
 }
 
-// ─── Get available learners ──────────────────────────────
+// ─── Get available learners (via user_student_access) ────
 
-export async function getMyLearners(): Promise<{ clientId: string; agencyId: string }[]> {
+export async function getMyLearners(): Promise<{ clientId: string; agencyId: string; firstName?: string; lastName?: string }[]> {
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return [];
 
-    const { data, error } = await (supabase as any)
-      .from('user_agency_access')
+    const { data: accessRows, error: accessErr } = await (supabase as any)
+      .from('user_student_access')
       .select('client_id, agency_id')
-      .eq('user_id', user.id)
-      .not('client_id', 'is', null);
+      .eq('user_id', user.id);
 
-    if (error || !data) return [];
-    return data.map((r: any) => ({ clientId: r.client_id, agencyId: r.agency_id }));
+    if (accessErr || !accessRows?.length) return [];
+
+    const studentIds = accessRows.map((r: any) => r.client_id).filter(Boolean);
+    if (studentIds.length === 0) return [];
+
+    const { data: students } = await (supabase as any)
+      .from('students')
+      .select('id, first_name, last_name')
+      .in('id', studentIds);
+
+    const studentMap = new Map((students || []).map((s: any) => [s.id, s]));
+
+    return accessRows
+      .filter((r: any) => r.client_id)
+      .map((r: any) => {
+        const s: any = studentMap.get(r.client_id);
+        return {
+          clientId: r.client_id,
+          agencyId: r.agency_id || '',
+          firstName: s?.first_name,
+          lastName: s?.last_name,
+        };
+      });
   } catch {
     return [];
   }
