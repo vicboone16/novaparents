@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react';
 import { getCurrentUser, signOut, checkHandshake, getMaskedBackendUrl, getMyClients, type ClientSummary } from '@/lib/dal';
-import { User, Bell, Wrench, LogOut, CheckCircle2, XCircle, Copy, Star } from 'lucide-react';
+import { User, Bell, Wrench, LogOut, CheckCircle2, XCircle, Copy, Star, Pencil } from 'lucide-react';
 import { getMyProgress, type ModuleProgress } from '@/lib/academy-dal';
 import { getMyAttempts } from '@/lib/behavior-lab-dal';
+import { getDisplayName, updateDisplayName } from '@/lib/profile-dal';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { useNavigate } from 'react-router-dom';
 import { useNotifications } from '@/hooks/useNotifications';
+import { useToast } from '@/hooks/use-toast';
 
 export default function ProfilePage() {
   const [user, setUser] = useState<any>(null);
@@ -18,7 +21,12 @@ export default function ProfilePage() {
   }>({ appSlug: null, supabaseUrl: '', lastPing: null });
   const [showDiag, setShowDiag] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [displayName, setDisplayName] = useState('');
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState('');
+  const [savingName, setSavingName] = useState(false);
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const GROWTH_LEVELS = [
     { level: 1, name: 'Observer', xp: 0, emoji: '👀' },
@@ -36,7 +44,7 @@ export default function ProfilePage() {
   const { requestPermission } = useNotifications(notifications);
 
   useEffect(() => {
-    getCurrentUser().then(u => {
+    getCurrentUser().then(async (u) => {
       setUser(u);
       if (u) {
         Promise.all([getMyProgress(u.id), getMyAttempts(u.id)]).then(([prog, attempts]) => {
@@ -44,6 +52,8 @@ export default function ProfilePage() {
           const labXp = attempts.reduce((s, a) => s + (a.xp_earned || 0), 0);
           setTotalXp(academyXp + labXp);
         });
+        const name = await getDisplayName(u.id);
+        if (name) setDisplayName(name);
       }
     });
     getMyClients().then(setClients);
@@ -74,6 +84,20 @@ export default function ProfilePage() {
     navigate('/login');
   }
 
+  async function handleSaveName() {
+    if (!user || !nameInput.trim()) return;
+    setSavingName(true);
+    try {
+      await updateDisplayName(user.id, nameInput);
+      setDisplayName(nameInput.trim());
+      setEditingName(false);
+      toast({ title: 'Name updated', description: 'Your display name has been saved.' });
+    } catch {
+      toast({ title: 'Error', description: 'Could not save name. Try again.', variant: 'destructive' });
+    }
+    setSavingName(false);
+  }
+
   const inviteCode = user?.id ? user.id.slice(0, 8).toUpperCase() : '...';
 
   function copyInvite() {
@@ -87,14 +111,45 @@ export default function ProfilePage() {
       <h2 className="font-display text-2xl font-bold text-foreground">Profile</h2>
 
       {/* User Info */}
-      <div className="rounded-xl border border-border bg-card p-4 shadow-card flex items-center gap-4">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-          <User className="h-6 w-6 text-primary" />
+      <div className="rounded-xl border border-border bg-card p-4 shadow-card space-y-3">
+        <div className="flex items-center gap-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+            <User className="h-6 w-6 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-display font-bold text-foreground truncate">
+              {displayName || user?.email || 'Loading…'}
+            </p>
+            {displayName && <p className="text-xs text-muted-foreground truncate">{user?.email}</p>}
+            <p className="text-sm text-muted-foreground">Coach Account</p>
+          </div>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => { setNameInput(displayName); setEditingName(true); }}
+            className="shrink-0"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
         </div>
-        <div className="flex-1 min-w-0">
-          <p className="font-display font-bold text-foreground truncate">{user?.email || 'Loading…'}</p>
-          <p className="text-sm text-muted-foreground">Coach Account</p>
-        </div>
+
+        {editingName && (
+          <div className="flex gap-2 animate-fade-in">
+            <Input
+              value={nameInput}
+              onChange={e => setNameInput(e.target.value)}
+              placeholder="Your display name"
+              maxLength={100}
+              className="flex-1"
+              autoFocus
+              onKeyDown={e => e.key === 'Enter' && handleSaveName()}
+            />
+            <Button size="sm" onClick={handleSaveName} disabled={savingName || !nameInput.trim()}>
+              {savingName ? 'Saving…' : 'Save'}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setEditingName(false)}>Cancel</Button>
+          </div>
+        )}
       </div>
 
       {/* Growth Path */}

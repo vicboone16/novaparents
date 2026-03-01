@@ -143,4 +143,14 @@
   .animate-slide-up {
     animation: slide-up 0.3s ease-out;
   }
+
+  @keyframes flame-pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.15); opacity: 0.85; }
+  }
+
+  .animate-flame {
+    animation: flame-pulse 1.2s ease-in-out infinite;
+    display: inline-block;
+  }
 }
