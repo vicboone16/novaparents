@@ -5,8 +5,8 @@ import { useEngagement } from '@/hooks/useEngagement';
 
 const navItems = [
   { to: '/', label: 'Home', icon: Home },
-  { to: '/toolkit', label: 'Toolkit', icon: Wrench },
   { to: '/academy', label: 'Academy', icon: BookOpen },
+  { to: '/toolkit', label: 'Toolkit', icon: Wrench },
   { to: '/behavior-lab', label: 'Lab', icon: Gamepad2 },
   { to: '/profile', label: 'Profile', icon: User },
 ];

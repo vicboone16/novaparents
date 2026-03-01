@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { BookOpen, Flame, Star, ChevronRight, CheckCircle2, Lock, Play, ArrowLeft, Sparkles } from 'lucide-react';
+import { BookOpen, Flame, Star, ChevronRight, CheckCircle2, Lock, Play, ArrowLeft, Sparkles, GraduationCap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getCurrentUser } from '@/lib/dal';
 import {
@@ -14,7 +14,9 @@ import {
   type AcademyModule, type AcademyPath, type PathModule, type ModuleProgress, type ModuleAssignment, type ModuleVersion,
 } from '@/lib/academy-dal';
 import { ModuleContentPlayer } from '@/components/ModuleContentPlayer';
+import CurriculumPage from './CurriculumPage';
 
+type AcademyTab = 'academy' | 'learn';
 const GROWTH_LEVELS = [
   { level: 1, name: 'Observer', xp: 0, emoji: '👀' },
   { level: 2, name: 'Behavior Detective', xp: 100, emoji: '🔍' },
@@ -24,6 +26,7 @@ const GROWTH_LEVELS = [
 ];
 
 export default function NovaAcademyPage() {
+  const [academyTab, setAcademyTab] = useState<AcademyTab>('academy');
   const [userId, setUserId] = useState('');
   const [modules, setModules] = useState<AcademyModule[]>([]);
   const [paths, setPaths] = useState<AcademyPath[]>([]);
@@ -244,11 +247,61 @@ export default function NovaAcademyPage() {
   const assignedMods = modules.filter(m => assignedModuleIds.has(m.id) && progressMap.get(m.id)?.status !== 'completed');
   const completedMods = modules.filter(m => progressMap.get(m.id)?.status === 'completed');
 
+  const academyTabs: { key: AcademyTab; label: string; icon: React.ElementType }[] = [
+    { key: 'academy', label: 'Academy', icon: GraduationCap },
+    { key: 'learn', label: 'Learn', icon: BookOpen },
+  ];
+
+  // If on Learn tab, render CurriculumPage
+  if (academyTab === 'learn') {
+    return (
+      <div className="space-y-4 animate-fade-in">
+        <div className="text-center space-y-1">
+          <h2 className="font-display text-2xl font-bold text-foreground">Nova Academy™</h2>
+          <p className="text-sm text-muted-foreground">Small skills. Big shifts.</p>
+        </div>
+        <div className="flex gap-1.5 overflow-x-auto pb-1">
+          {academyTabs.map(t => (
+            <button
+              key={t.key}
+              onClick={() => setAcademyTab(t.key)}
+              className={`flex items-center gap-1 whitespace-nowrap rounded-xl px-3 py-2 text-xs font-semibold transition-all ${
+                academyTab === t.key
+                  ? 'bg-primary text-primary-foreground shadow-soft'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
+              }`}
+            >
+              <t.icon className="h-3.5 w-3.5" /> {t.label}
+            </button>
+          ))}
+        </div>
+        <CurriculumPage />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5 animate-fade-in">
       <div className="text-center space-y-1">
         <h2 className="font-display text-2xl font-bold text-foreground">Nova Academy™</h2>
         <p className="text-sm text-muted-foreground">Small skills. Big shifts.</p>
+      </div>
+
+      {/* Tab switcher */}
+      <div className="flex gap-1.5 overflow-x-auto pb-1">
+        {academyTabs.map(t => (
+          <button
+            key={t.key}
+            onClick={() => setAcademyTab(t.key)}
+            className={`flex items-center gap-1 whitespace-nowrap rounded-xl px-3 py-2 text-xs font-semibold transition-all ${
+              academyTab === t.key
+                ? 'bg-primary text-primary-foreground shadow-soft'
+                : 'bg-muted text-muted-foreground hover:bg-muted/80'
+            }`}
+          >
+            <t.icon className="h-3.5 w-3.5" /> {t.label}
+          </button>
+        ))}
       </div>
 
       {/* Progress ring + stats */}
