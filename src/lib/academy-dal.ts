@@ -152,35 +152,34 @@ export async function updateVersion(id: string, updates: Partial<ModuleVersion>)
 // ─── Paths ───────────────────────────────────────────────
 
 export async function getPaths(): Promise<AcademyPath[]> {
-  const { data, error } = await (supabase as any).from('academy_paths').select('*').order('updated_at', { ascending: false });
+  const { data, error } = await (supabase as any).from('parent_training_paths').select('*').order('updated_at', { ascending: false });
   if (error) { console.error('[Academy DAL] getPaths:', error); return []; }
   return data || [];
 }
 
 export async function createPath(p: Partial<AcademyPath>): Promise<AcademyPath | null> {
-  const { data, error } = await (supabase as any).from('academy_paths').insert(p).select().single();
+  const { data, error } = await (supabase as any).from('parent_training_paths').insert(p).select().single();
   if (error) { console.error('[Academy DAL] createPath:', error); return null; }
   return data;
 }
 
 export async function updatePath(id: string, updates: Partial<AcademyPath>): Promise<AcademyPath | null> {
-  const { data, error } = await (supabase as any).from('academy_paths').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', id).select().single();
+  const { data, error } = await (supabase as any).from('parent_training_paths').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', id).select().single();
   if (error) { console.error('[Academy DAL] updatePath:', error); return null; }
   return data;
 }
 
 export async function getPathModules(pathId: string): Promise<PathModule[]> {
-  const { data, error } = await (supabase as any).from('academy_path_modules').select('*').eq('path_id', pathId).order('sort_order');
+  const { data, error } = await (supabase as any).from('parent_training_path_modules').select('*').eq('path_id', pathId).order('sort_order');
   if (error) { console.error('[Academy DAL] getPathModules:', error); return []; }
   return data || [];
 }
 
 export async function setPathModules(pathId: string, modules: Partial<PathModule>[]): Promise<boolean> {
-  // Delete existing, then insert new
-  await (supabase as any).from('academy_path_modules').delete().eq('path_id', pathId);
+  await (supabase as any).from('parent_training_path_modules').delete().eq('path_id', pathId);
   if (modules.length === 0) return true;
   const rows = modules.map((m, i) => ({ ...m, path_id: pathId, sort_order: i }));
-  const { error } = await (supabase as any).from('academy_path_modules').insert(rows);
+  const { error } = await (supabase as any).from('parent_training_path_modules').insert(rows);
   if (error) { console.error('[Academy DAL] setPathModules:', error); return false; }
   return true;
 }
@@ -188,7 +187,7 @@ export async function setPathModules(pathId: string, modules: Partial<PathModule
 // ─── Assignments ─────────────────────────────────────────
 
 export async function getAssignments(filters?: { coach_user_id?: string; status?: string }): Promise<ModuleAssignment[]> {
-  let query = (supabase as any).from('academy_module_assignments').select('*').order('created_at', { ascending: false });
+  let query = (supabase as any).from('parent_training_module_assignments').select('*').order('created_at', { ascending: false });
   if (filters?.coach_user_id) query = query.eq('coach_user_id', filters.coach_user_id);
   if (filters?.status) query = query.eq('status', filters.status);
   const { data, error } = await query;
@@ -197,13 +196,13 @@ export async function getAssignments(filters?: { coach_user_id?: string; status?
 }
 
 export async function createAssignment(a: Partial<ModuleAssignment>): Promise<ModuleAssignment | null> {
-  const { data, error } = await (supabase as any).from('academy_module_assignments').insert(a).select().single();
+  const { data, error } = await (supabase as any).from('parent_training_module_assignments').insert(a).select().single();
   if (error) { console.error('[Academy DAL] createAssignment:', error); return null; }
   return data;
 }
 
 export async function updateAssignment(id: string, updates: Partial<ModuleAssignment>): Promise<ModuleAssignment | null> {
-  const { data, error } = await (supabase as any).from('academy_module_assignments').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', id).select().single();
+  const { data, error } = await (supabase as any).from('parent_training_module_assignments').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', id).select().single();
   if (error) { console.error('[Academy DAL] updateAssignment:', error); return null; }
   return data;
 }
@@ -211,25 +210,25 @@ export async function updateAssignment(id: string, updates: Partial<ModuleAssign
 // ─── Rules ───────────────────────────────────────────────
 
 export async function getRules(): Promise<ModuleRule[]> {
-  const { data, error } = await (supabase as any).from('academy_module_rules').select('*').order('created_at', { ascending: false });
+  const { data, error } = await (supabase as any).from('parent_training_module_rules').select('*').order('created_at', { ascending: false });
   if (error) { console.error('[Academy DAL] getRules:', error); return []; }
   return data || [];
 }
 
 export async function createRule(r: Partial<ModuleRule>): Promise<ModuleRule | null> {
-  const { data, error } = await (supabase as any).from('academy_module_rules').insert(r).select().single();
+  const { data, error } = await (supabase as any).from('parent_training_module_rules').insert(r).select().single();
   if (error) { console.error('[Academy DAL] createRule:', error); return null; }
   return data;
 }
 
 export async function updateRule(id: string, updates: Partial<ModuleRule>): Promise<ModuleRule | null> {
-  const { data, error } = await (supabase as any).from('academy_module_rules').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', id).select().single();
+  const { data, error } = await (supabase as any).from('parent_training_module_rules').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', id).select().single();
   if (error) { console.error('[Academy DAL] updateRule:', error); return null; }
   return data;
 }
 
 export async function deleteRule(id: string): Promise<boolean> {
-  const { error } = await (supabase as any).from('academy_module_rules').delete().eq('id', id);
+  const { error } = await (supabase as any).from('parent_training_module_rules').delete().eq('id', id);
   if (error) { console.error('[Academy DAL] deleteRule:', error); return false; }
   return true;
 }
@@ -237,13 +236,13 @@ export async function deleteRule(id: string): Promise<boolean> {
 // ─── Progress ────────────────────────────────────────────
 
 export async function getMyProgress(userId: string): Promise<ModuleProgress[]> {
-  const { data, error } = await (supabase as any).from('academy_module_progress').select('*').eq('user_id', userId);
+  const { data, error } = await (supabase as any).from('parent_training_module_progress').select('*').eq('user_id', userId);
   if (error) { console.error('[Academy DAL] getMyProgress:', error); return []; }
   return data || [];
 }
 
 export async function upsertProgress(p: Partial<ModuleProgress>): Promise<ModuleProgress | null> {
-  const { data, error } = await (supabase as any).from('academy_module_progress').upsert(
+  const { data, error } = await (supabase as any).from('parent_training_module_progress').upsert(
     { ...p, updated_at: new Date().toISOString() },
     { onConflict: 'user_id,module_id' }
   ).select().single();
