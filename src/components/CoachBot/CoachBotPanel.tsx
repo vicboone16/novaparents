@@ -6,6 +6,7 @@
  */
 
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { X, Sparkles, HelpCircle, Search, Shield, MessageSquare, BookOpen, Repeat, Eye, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { FunctionFinderTool } from './tools/FunctionFinder';
@@ -34,6 +35,7 @@ const tools: { key: ToolKey; label: string; icon: React.ElementType; description
 ];
 
 export function CoachBotPanel({ open, onClose }: Props) {
+  const navigate = useNavigate();
   const [activeTool, setActiveTool] = useState<ToolKey>(null);
 
   if (!open) return null;
@@ -42,7 +44,7 @@ export function CoachBotPanel({ open, onClose }: Props) {
     if (key === 'translate' || key === 'reinforce') {
       // These live in Toolkit tabs — navigate there
       onClose();
-      window.location.href = key === 'translate' ? '/toolkit?tab=translator' : '/toolkit?tab=reinforcing';
+      navigate(key === 'translate' ? '/toolkit?tab=translator' : '/toolkit?tab=reinforcing');
       return;
     }
     setActiveTool(key);

@@ -7,6 +7,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Sparkles, ArrowRight, Pin, Play, Save, ChevronDown, ChevronUp,
   CheckCircle2, Target, Lightbulb, BookOpen, RotateCcw, Info,
@@ -63,6 +64,7 @@ const ADULT_RELIEF_OPTIONS: { key: keyof AdultReliefSelections; label: string }[
 ];
 
 export function BehaviorTranslator() {
+  const navigate = useNavigate();
   const [userId, setUserId] = useState('');
   const [library, setLibrary] = useState<ReplacementBehavior[]>([]);
 
@@ -183,7 +185,7 @@ export function BehaviorTranslator() {
   function handleStartTracking() {
     const prefill = { behavior, antecedent, consequence, setting: setting || '' };
     sessionStorage.setItem('bd_prefill_abc', JSON.stringify(prefill));
-    window.location.href = '/log';
+    navigate('/log');
   }
 
   function handleReset() {
