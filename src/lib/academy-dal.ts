@@ -109,7 +109,7 @@ export interface ModuleProgress {
 // ─── Modules ─────────────────────────────────────────────
 
 export async function getModules(filters?: { scope?: string; status?: string }): Promise<AcademyModule[]> {
-  let query = (supabase as any).from('academy_modules').select('*').order('updated_at', { ascending: false });
+  let query = (supabase as any).from('parent_training_modules').select('*').order('updated_at', { ascending: false });
   if (filters?.scope) query = query.eq('scope', filters.scope);
   if (filters?.status) query = query.eq('status', filters.status);
   const { data, error } = await query;
@@ -118,13 +118,13 @@ export async function getModules(filters?: { scope?: string; status?: string }):
 }
 
 export async function createModule(mod: Partial<AcademyModule>): Promise<AcademyModule | null> {
-  const { data, error } = await (supabase as any).from('academy_modules').insert(mod).select().single();
+  const { data, error } = await (supabase as any).from('parent_training_modules').insert(mod).select().single();
   if (error) { console.error('[Academy DAL] createModule:', error); return null; }
   return data;
 }
 
 export async function updateModule(id: string, updates: Partial<AcademyModule>): Promise<AcademyModule | null> {
-  const { data, error } = await (supabase as any).from('academy_modules').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', id).select().single();
+  const { data, error } = await (supabase as any).from('parent_training_modules').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', id).select().single();
   if (error) { console.error('[Academy DAL] updateModule:', error); return null; }
   return data;
 }
@@ -132,19 +132,19 @@ export async function updateModule(id: string, updates: Partial<AcademyModule>):
 // ─── Versions ────────────────────────────────────────────
 
 export async function getVersions(moduleId: string): Promise<ModuleVersion[]> {
-  const { data, error } = await (supabase as any).from('academy_module_versions').select('*').eq('module_id', moduleId).order('version_num', { ascending: false });
+  const { data, error } = await (supabase as any).from('parent_training_module_versions').select('*').eq('module_id', moduleId).order('version_num', { ascending: false });
   if (error) { console.error('[Academy DAL] getVersions:', error); return []; }
   return data || [];
 }
 
 export async function createVersion(v: Partial<ModuleVersion>): Promise<ModuleVersion | null> {
-  const { data, error } = await (supabase as any).from('academy_module_versions').insert(v).select().single();
+  const { data, error } = await (supabase as any).from('parent_training_module_versions').insert(v).select().single();
   if (error) { console.error('[Academy DAL] createVersion:', error); return null; }
   return data;
 }
 
 export async function updateVersion(id: string, updates: Partial<ModuleVersion>): Promise<ModuleVersion | null> {
-  const { data, error } = await (supabase as any).from('academy_module_versions').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', id).select().single();
+  const { data, error } = await (supabase as any).from('parent_training_module_versions').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', id).select().single();
   if (error) { console.error('[Academy DAL] updateVersion:', error); return null; }
   return data;
 }
