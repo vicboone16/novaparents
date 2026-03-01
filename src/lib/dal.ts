@@ -67,20 +67,38 @@ export interface ClientSummary {
   last_name: string;
 }
 
-/** Fetch clients the current parent has access to via user_client_access. */
+/** Fetch learners the current user has access to via user_student_access → students. */
 export async function getMyClients(): Promise<ClientSummary[]> {
-  // Phase 1: attempts read from public.clients (parent-safe view).
-  // If the view/table doesn't exist yet, returns empty gracefully.
   try {
-    const { data, error } = await (supabase as any)
-      .from('clients')
-      .select('id, first_name, last_name');
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
 
-    if (error) {
-      console.warn('[DAL] clients read skipped:', error.message);
+    // Step 1: get student IDs from user_student_access
+    const { data: accessRows, error: accessErr } = await (supabase as any)
+      .from('user_student_access')
+      .select('client_id')
+      .eq('user_id', user.id);
+
+    if (accessErr || !accessRows?.length) {
+      if (accessErr) console.warn('[DAL] user_student_access read:', accessErr.message);
       return [];
     }
-    return (data as ClientSummary[]) || [];
+
+    const studentIds = accessRows.map((r: any) => r.client_id).filter(Boolean);
+    if (studentIds.length === 0) return [];
+
+    // Step 2: fetch student details
+    const { data: students, error: studentsErr } = await (supabase as any)
+      .from('students')
+      .select('id, first_name, last_name')
+      .in('id', studentIds);
+
+    if (studentsErr || !students) {
+      console.warn('[DAL] students read:', studentsErr?.message);
+      return [];
+    }
+
+    return (students as ClientSummary[]) || [];
   } catch {
     return [];
   }
