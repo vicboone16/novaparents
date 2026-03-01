@@ -95,7 +95,7 @@ export default function SnapshotBuilderPage() {
       weekStart: selectedWeek.start,
       weekEnd: selectedWeek.end,
       createdAt: new Date().toISOString(),
-      status: 'saved',
+      statusLocal: 'saved',
       ...form,
     };
   }
@@ -118,7 +118,7 @@ export default function SnapshotBuilderPage() {
     setShareError(null);
     try {
       const snapshot = buildSnapshotObject();
-      snapshot.status = 'pending_review';
+      snapshot.statusLocal = 'shared_pending';
       snapshot.sharedAt = new Date().toISOString();
 
       const result = await shareSnapshot(snapshot);
@@ -131,8 +131,11 @@ export default function SnapshotBuilderPage() {
           description: 'Snapshot saved. Sharing to your support team is not yet available in this environment.',
         });
       } else {
+        // Store returned packet info
+        snapshot.sharedPacketId = result.insertedCount ? `shared-${Date.now()}` : null;
+        snapshot.lastSyncedAt = new Date().toISOString();
         saveSnapshot(snapshot);
-        toast({ title: '📤 Snapshot Shared', description: 'Your weekly snapshot has been submitted for review.' });
+        toast({ title: '📤 Snapshot Shared', description: `Your weekly snapshot has been submitted for review (${result.insertedCount ?? 1} packet).` });
       }
       navigate('/insights');
     } catch (err: any) {

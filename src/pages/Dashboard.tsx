@@ -14,7 +14,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { getCurrentUser } from '@/lib/dal';
 import { getDisplayName } from '@/lib/profile-dal';
 import { Button } from '@/components/ui/button';
-import { getSnapshotsForUser, type WeeklySnapshot, type SnapshotStatus } from '@/lib/snapshots';
+import { getSnapshotsForUser, toDisplayStatus, type WeeklySnapshot, type SnapshotStatus } from '@/lib/snapshots';
 import { getMyProgress } from '@/lib/academy-dal';
 import { getStreak, recordActivity, getStreakMilestone, checkStreakRecovery, recoverStreak, STREAK_RECOVERY_COST, type UserStreak } from '@/lib/streaks';
 import { useToast } from '@/hooks/use-toast';
@@ -149,7 +149,7 @@ export default function Dashboard() {
   }
 
   const latestSnapshot = snapshots[0] || null;
-  const returnedSnapshot = snapshots.find(s => s.status === 'returned');
+  const returnedSnapshot = snapshots.find(s => s.statusLocal === 'returned');
   const totalModules = dbModulesCompleted + localLessons;
 
   // ─── First-time: 2-card onboarding ────────────────
@@ -377,8 +377,8 @@ export default function Dashboard() {
               <span className="text-xs font-semibold uppercase tracking-wide text-primary">Weekly Snapshot</span>
             </div>
             {latestSnapshot && (
-              <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${snapshotStatusConfig[latestSnapshot.status].cls}`}>
-                {snapshotStatusConfig[latestSnapshot.status].label}
+              <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${snapshotStatusConfig[toDisplayStatus(latestSnapshot.statusLocal)].cls}`}>
+                {snapshotStatusConfig[toDisplayStatus(latestSnapshot.statusLocal)].label}
               </span>
             )}
           </div>
