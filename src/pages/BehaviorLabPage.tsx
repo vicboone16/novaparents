@@ -131,6 +131,7 @@ export default function BehaviorLabPage() {
   if (activeGame) {
     return (
       <LabGameEngine
+        key={activeGame.id}
         game={activeGame}
         onBack={() => {
           setActiveGame(null);
