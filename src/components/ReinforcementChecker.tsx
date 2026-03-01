@@ -5,7 +5,8 @@
  * No numeric scores shown to parents.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   HelpCircle, CheckCircle2, AlertTriangle, XCircle, ArrowRight, BookOpen, RotateCcw, Info,
 } from 'lucide-react';
@@ -33,6 +34,7 @@ const FUNCTION_OPTIONS: { value: BehaviorFunction; label: string; description: s
 ];
 
 export function ReinforcementChecker() {
+  const navigate = useNavigate();
   const [userId, setUserId] = useState('');
   const [library, setLibrary] = useState<ReplacementBehavior[]>([]);
 
@@ -251,7 +253,7 @@ export function ReinforcementChecker() {
           {(result.likelihood === 'possibly' || result.confidence === 'low' || result.confidence === 'mixed') && (
             <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-center">
               <p className="text-xs text-muted-foreground mb-2">Want a deeper analysis?</p>
-              <Button size="sm" variant="outline" onClick={() => window.location.href = '/toolkit?tab=translator'} className="gap-1.5">
+              <Button size="sm" variant="outline" onClick={() => { try { navigate('/toolkit?tab=translator'); } catch (e) { console.error('Navigation error:', e); } }} className="gap-1.5">
                 <ArrowRight className="h-3.5 w-3.5" /> Translate the Behavior
               </Button>
             </div>
