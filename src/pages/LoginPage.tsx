@@ -3,16 +3,19 @@ import { signIn, resetPassword } from '@/lib/dal';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Heart, Loader2 } from 'lucide-react';
+import { Heart, Loader2, Ticket } from 'lucide-react';
+import { RedeemCodeForm } from '@/components/RedeemCodeForm';
+import { useNavigate } from 'react-router-dom';
 
 export default function LoginPage() {
-  const [mode, setMode] = useState<'login' | 'signup' | 'reset'>('login');
+  const [mode, setMode] = useState<'login' | 'signup' | 'reset' | 'redeem'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const navigate = useNavigate();
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -60,7 +63,7 @@ export default function LoginPage() {
     setLoading(false);
   }
 
-  function switchMode(m: 'login' | 'signup' | 'reset') {
+  function switchMode(m: 'login' | 'signup' | 'reset' | 'redeem') {
     setMode(m);
     setError('');
     setSuccess('');
@@ -83,7 +86,19 @@ export default function LoginPage() {
           </div>
         )}
 
-        {mode === 'reset' ? (
+        {mode === 'redeem' ? (
+          <div className="space-y-4">
+            <h2 className="font-display text-lg font-bold text-foreground">Redeem Invite Code</h2>
+            <p className="text-sm text-muted-foreground">
+              You'll need to sign in or create an account first, then your code will be applied.
+            </p>
+            <RedeemCodeForm
+              redeemedFrom="signup"
+              onCancel={() => switchMode('login')}
+              onSuccess={() => navigate('/')}
+            />
+          </div>
+        ) : mode === 'reset' ? (
           <form onSubmit={handleReset} className="space-y-4">
             <h2 className="font-display text-lg font-bold text-foreground">Reset Password</h2>
             <Input type="email" placeholder="Email address" value={email} onChange={(e) => setEmail(e.target.value)} required />
@@ -126,6 +141,18 @@ export default function LoginPage() {
               ) : (
                 <button type="button" onClick={() => switchMode('login')} className="text-primary font-medium">← Already have an account</button>
               )}
+            </div>
+
+            {/* Redeem code CTA */}
+            <div className="border-t border-border pt-4">
+              <button
+                type="button"
+                onClick={() => switchMode('redeem')}
+                className="w-full flex items-center justify-center gap-2 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-sm font-semibold text-primary hover:bg-primary/10 transition-colors"
+              >
+                <Ticket className="h-4 w-4" />
+                I have an invite code
+              </button>
             </div>
           </form>
         )}
