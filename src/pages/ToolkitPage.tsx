@@ -27,6 +27,13 @@ export default function ToolkitPage() {
     return 'academy';
   });
 
+  useEffect(() => {
+    const urlTab = searchParams.get('tab');
+    if (urlTab && ['academy','learn','library','translator','reinforcing','caregiver'].includes(urlTab)) {
+      setTab(urlTab as Tab);
+    }
+  }, [searchParams]);
+
   const tabs: { key: Tab; label: string; icon: React.ElementType }[] = [
     { key: 'academy', label: 'Academy', icon: GraduationCap },
     { key: 'learn', label: 'Learn', icon: BookOpen },
