@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { getCurrentUser, signOut, checkHandshake, getMaskedBackendUrl, getMyClients, type ClientSummary } from '@/lib/dal';
-import { User, Bell, Wrench, LogOut, CheckCircle2, XCircle, Star, Pencil, Ticket, Link2, Copy, Building2 } from 'lucide-react';
+import { User, Bell, Wrench, LogOut, CheckCircle2, XCircle, Star, Pencil, Ticket, Link2, Copy, Building2, Loader2 } from 'lucide-react';
 import { getMyTrainingProgress, type TrainingProgress } from '@/lib/parent-training-dal';
 import { getMyAttempts } from '@/lib/behavior-lab-dal';
 import { getDisplayName, updateDisplayName } from '@/lib/profile-dal';
-import { getMyAgencyAccess, type AgencyAccess } from '@/lib/invite-dal';
+import { getMyAgencyAccess, type AgencyAccess, redeemInviteCode } from '@/lib/invite-dal';
 import { RedeemCodeForm } from '@/components/RedeemCodeForm';
 import { RedeemAgencyInviteCode } from '@/components/agency/RedeemAgencyInviteCode';
 import { IndependentLearnerForm } from '@/components/IndependentLearnerForm';
@@ -32,6 +32,11 @@ export default function ProfilePage() {
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState('');
   const [savingName, setSavingName] = useState(false);
+  const [showLearnerCode, setShowLearnerCode] = useState(false);
+  const [learnerCode, setLearnerCode] = useState('');
+  const [learnerCodeLoading, setLearnerCodeLoading] = useState(false);
+  const [learnerCodeError, setLearnerCodeError] = useState('');
+  const [learnerCodeSuccess, setLearnerCodeSuccess] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -259,6 +264,70 @@ export default function ProfilePage() {
           <p className="text-xs text-muted-foreground mb-1">Your account is not linked to a learner yet.</p>
         )}
         <IndependentLearnerForm />
+
+        {/* Redeem Learner Code */}
+        <div className="border-t border-border pt-3 mt-3">
+          {learnerCodeSuccess ? (
+            <div className="flex items-center gap-3 rounded-xl bg-success/10 border border-success/20 p-3 animate-fade-in">
+              <CheckCircle2 className="h-5 w-5 text-success shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-foreground">Learner linked!</p>
+                <p className="text-xs text-muted-foreground">Your learner list has been updated.</p>
+              </div>
+            </div>
+          ) : !showLearnerCode ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowLearnerCode(true)}
+              className="w-full gap-1 text-xs"
+            >
+              <Ticket className="h-3.5 w-3.5" /> Link with Invite Code (BD-XXXX)
+            </Button>
+          ) : (
+            <div className="space-y-2 animate-fade-in">
+              <p className="text-xs text-muted-foreground">Enter the BD- code from your BCBA or agency to link to a specific learner.</p>
+              <div className="flex gap-2">
+                <Input
+                  value={learnerCode}
+                  onChange={e => setLearnerCode(e.target.value.toUpperCase())}
+                  placeholder="BD-XXXX-XXXX"
+                  maxLength={32}
+                  className="flex-1 font-mono uppercase tracking-wider"
+                  autoFocus
+                  disabled={learnerCodeLoading}
+                />
+                <Button
+                  size="sm"
+                  disabled={learnerCodeLoading || !learnerCode.trim() || !learnerCode.startsWith('BD-')}
+                  onClick={async () => {
+                    setLearnerCodeLoading(true);
+                    setLearnerCodeError('');
+                    const result = await redeemInviteCode(learnerCode.trim(), 'settings');
+                    if (result.success) {
+                      setLearnerCodeSuccess(true);
+                      getMyClients().then(setClients);
+                      getMyAgencyAccess().then(setAgencyAccess);
+                    } else {
+                      setLearnerCodeError(result.error || 'Something went wrong.');
+                    }
+                    setLearnerCodeLoading(false);
+                  }}
+                >
+                  {learnerCodeLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Connect'}
+                </Button>
+              </div>
+              {learnerCodeError && <p className="text-xs text-destructive">{learnerCodeError}</p>}
+              <button
+                type="button"
+                onClick={() => { setShowLearnerCode(false); setLearnerCodeError(''); setLearnerCode(''); }}
+                className="text-xs text-primary font-medium"
+              >
+                ← Cancel
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Coach Email (read-only) */}
