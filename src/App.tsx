@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { BackendGuardScreen } from "@/components/BackendGuardScreen";
 import { useBackendGuard } from "@/hooks/useBackendGuard";
 import { supabase } from "@/integrations/supabase/client";
@@ -106,8 +107,8 @@ function AppContent() {
           <Route path="/progress" element={<ProgressPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/audit" element={<AuditDashboardPage />} />
-          <Route path="/admin/academy" element={<AcademyAdminPage />} />
-          <Route path="/admin/behavior-lab" element={<BehaviorLabAdminPage />} />
+          <Route path="/admin/academy" element={<ProtectedRoute><AcademyAdminPage /></ProtectedRoute>} />
+          <Route path="/admin/behavior-lab" element={<ProtectedRoute><BehaviorLabAdminPage /></ProtectedRoute>} />
           {/* Legacy redirects */}
           <Route path="/learn" element={<Navigate to="/toolkit" replace />} />
           <Route path="/library" element={<Navigate to="/toolkit" replace />} />
