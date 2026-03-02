@@ -63,19 +63,26 @@ export async function checkAppAccess(): Promise<AppAccess> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { hasAccess: false, role: null };
 
-  const { data, error } = await (supabase as any)
+  // Use the SECURITY DEFINER RPC for access check
+  const { data: hasAccess, error: rpcErr } = await (supabase as any).rpc('has_app_access', {
+    _user_id: user.id,
+    _app_slug: 'behaviordecoded',
+  });
+
+  if (rpcErr || hasAccess !== true) {
+    if (rpcErr) console.warn('[DAL] has_app_access RPC:', rpcErr.message);
+    return { hasAccess: false, role: null };
+  }
+
+  // Fetch role from user_app_access
+  const { data: accessRow } = await (supabase as any)
     .from('user_app_access')
     .select('role')
     .eq('user_id', user.id)
     .eq('app_slug', 'behaviordecoded')
     .maybeSingle();
 
-  if (error) {
-    console.warn('[DAL] user_app_access check:', error.message);
-    return { hasAccess: false, role: null };
-  }
-
-  return { hasAccess: !!data, role: data?.role ?? null };
+  return { hasAccess: true, role: accessRow?.role ?? null };
 }
 
 // ─── Diagnostics ─────────────────────────────────────────
