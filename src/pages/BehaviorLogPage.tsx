@@ -19,16 +19,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 interface ABCEntry {
   id: string; date: string; time: string; behavior: string; antecedent: string;
-  consequence: string; intensity: number; setting: string; notes: string;
+  consequence: string; intensity: number; setting: string; notes: string; learnerId?: string;
 }
 interface FrequencyEntry {
-  id: string; date: string; behavior: string; count: number; period: string; setting: string; notes: string;
+  id: string; date: string; behavior: string; count: number; period: string; setting: string; notes: string; learnerId?: string;
 }
 interface DurationEntry {
-  id: string; date: string; behavior: string; durationMin: number; setting: string; notes: string;
+  id: string; date: string; behavior: string; durationMin: number; setting: string; notes: string; learnerId?: string;
 }
 interface ImplEntry {
-  id: string; date: string; strategy: string; context: string; outcome: string; notes: string;
+  id: string; date: string; strategy: string; context: string; outcome: string; notes: string; learnerId?: string;
 }
 
 type LogTab = 'abc' | 'frequency' | 'duration' | 'implementation' | 'timer';
@@ -127,10 +127,10 @@ export default function BehaviorLogPage() {
         <span>Saved locally. Syncs to your Weekly Snapshot.</span>
       </div>
 
-      {tab === 'abc' && <ABCTab userId={userId} />}
-      {tab === 'frequency' && <FrequencyTab userId={userId} />}
-      {tab === 'duration' && <DurationTab userId={userId} />}
-      {tab === 'implementation' && <ImplementationTab userId={userId} />}
+      {tab === 'abc' && <ABCTab userId={userId} learnerId={selectedLearner} />}
+      {tab === 'frequency' && <FrequencyTab userId={userId} learnerId={selectedLearner} />}
+      {tab === 'duration' && <DurationTab userId={userId} learnerId={selectedLearner} />}
+      {tab === 'implementation' && <ImplementationTab userId={userId} learnerId={selectedLearner} />}
       {tab === 'timer' && <SessionTimerTab />}
     </div>
   );
@@ -138,7 +138,7 @@ export default function BehaviorLogPage() {
 
 // ─── ABC Tab ─────────────────────────────────────────────
 
-function ABCTab({ userId }: { userId: string }) {
+function ABCTab({ userId, learnerId }: { userId: string; learnerId: string }) {
   const [entries, setEntries] = useState<ABCEntry[]>(() => load('bd_behavior_log'));
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(() => {
@@ -176,6 +176,7 @@ function ABCTab({ userId }: { userId: string }) {
       time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       behavior: form.behavior, antecedent: form.antecedent, consequence: form.consequence,
       intensity: Number(form.intensity) || 3, setting: form.setting, notes: form.notes,
+      learnerId: learnerId || undefined,
     };
     setEntries([entry, ...entries]);
     if (userId) logBehaviorLogCreated(userId, entry.id);
@@ -225,10 +226,12 @@ function ABCTab({ userId }: { userId: string }) {
           </div>
         </div>
       )}
-      {entries.length === 0 ? (
+      {(() => {
+        const filtered = learnerId ? entries.filter(e => e.learnerId === learnerId || !e.learnerId) : entries;
+        return filtered.length === 0 ? (
         <EmptyState icon={PenLine} message="No ABC entries yet." />
       ) : (
-        entries.slice(0, 20).map(entry => {
+        filtered.slice(0, 20).map(entry => {
           const ic = intensityLabels[entry.intensity] || intensityLabels[3];
           return (
             <div key={entry.id} className="rounded-xl border border-border bg-card p-3 shadow-card">
@@ -246,14 +249,15 @@ function ABCTab({ userId }: { userId: string }) {
             </div>
           );
         })
-      )}
+      );
+      })()}
     </div>
   );
 }
 
 // ─── Frequency Tab ───────────────────────────────────────
 
-function FrequencyTab({ userId }: { userId: string }) {
+function FrequencyTab({ userId, learnerId }: { userId: string; learnerId: string }) {
   const [entries, setEntries] = useState<FrequencyEntry[]>(() => load('bd_frequency_log'));
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ behavior: '', count: '', period: '', setting: '', notes: '' });
@@ -265,7 +269,7 @@ function FrequencyTab({ userId }: { userId: string }) {
     const entry: FrequencyEntry = {
       id: crypto.randomUUID(), date: new Date().toISOString().split('T')[0],
       behavior: form.behavior, count: Number(form.count), period: form.period || '1 hour',
-      setting: form.setting, notes: form.notes,
+      setting: form.setting, notes: form.notes, learnerId: learnerId || undefined,
     };
     setEntries([entry, ...entries]);
     if (userId) logBehaviorLogCreated(userId, entry.id);
@@ -304,10 +308,12 @@ function FrequencyTab({ userId }: { userId: string }) {
           </div>
         </div>
       )}
-      {entries.length === 0 ? (
+      {(() => {
+        const filtered = learnerId ? entries.filter(e => e.learnerId === learnerId || !e.learnerId) : entries;
+        return filtered.length === 0 ? (
         <EmptyState icon={Hash} message="No frequency entries yet." />
       ) : (
-        entries.slice(0, 20).map(e => (
+        filtered.slice(0, 20).map(e => (
           <div key={e.id} className="rounded-xl border border-border bg-card p-3 shadow-card">
             <div className="flex items-center justify-between mb-1">
               <span className="text-[10px] text-muted-foreground">{e.date}{e.setting && ` · ${e.setting}`}</span>
@@ -317,14 +323,15 @@ function FrequencyTab({ userId }: { userId: string }) {
             <p className="text-xs text-muted-foreground">per {e.period}</p>
           </div>
         ))
-      )}
+      );
+      })()}
     </div>
   );
 }
 
 // ─── Duration Tab ────────────────────────────────────────
 
-function DurationTab({ userId }: { userId: string }) {
+function DurationTab({ userId, learnerId }: { userId: string; learnerId: string }) {
   const [entries, setEntries] = useState<DurationEntry[]>(() => load('bd_duration_log'));
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ behavior: '', durationMin: '', setting: '', notes: '' });
@@ -335,7 +342,7 @@ function DurationTab({ userId }: { userId: string }) {
     if (!form.behavior || !form.durationMin) return;
     const entry: DurationEntry = {
       id: crypto.randomUUID(), date: new Date().toISOString().split('T')[0],
-      behavior: form.behavior, durationMin: Number(form.durationMin), setting: form.setting, notes: form.notes,
+      behavior: form.behavior, durationMin: Number(form.durationMin), setting: form.setting, notes: form.notes, learnerId: learnerId || undefined,
     };
     setEntries([entry, ...entries]);
     if (userId) logBehaviorLogCreated(userId, entry.id);
@@ -370,10 +377,12 @@ function DurationTab({ userId }: { userId: string }) {
           </div>
         </div>
       )}
-      {entries.length === 0 ? (
+      {(() => {
+        const filtered = learnerId ? entries.filter(e => e.learnerId === learnerId || !e.learnerId) : entries;
+        return filtered.length === 0 ? (
         <EmptyState icon={Clock} message="No duration entries yet." />
       ) : (
-        entries.slice(0, 20).map(e => (
+        filtered.slice(0, 20).map(e => (
           <div key={e.id} className="rounded-xl border border-border bg-card p-3 shadow-card">
             <div className="flex items-center justify-between mb-1">
               <span className="text-[10px] text-muted-foreground">{e.date}{e.setting && ` · ${e.setting}`}</span>
@@ -382,14 +391,15 @@ function DurationTab({ userId }: { userId: string }) {
             <p className="text-sm font-semibold text-foreground">{e.behavior}</p>
           </div>
         ))
-      )}
+      );
+      })()}
     </div>
   );
 }
 
 // ─── Implementation Tab ──────────────────────────────────
 
-function ImplementationTab({ userId }: { userId: string }) {
+function ImplementationTab({ userId, learnerId }: { userId: string; learnerId: string }) {
   const [entries, setEntries] = useState<ImplEntry[]>(() => load('bd_implementation_log'));
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ strategy: '', context: '', outcome: '', notes: '' });
@@ -400,7 +410,7 @@ function ImplementationTab({ userId }: { userId: string }) {
     if (!form.strategy) return;
     const entry: ImplEntry = {
       id: crypto.randomUUID(), date: new Date().toISOString().split('T')[0],
-      strategy: form.strategy, context: form.context, outcome: form.outcome, notes: form.notes,
+      strategy: form.strategy, context: form.context, outcome: form.outcome, notes: form.notes, learnerId: learnerId || undefined,
     };
     setEntries([entry, ...entries]);
     if (userId) logImplementationLogCreated(userId, entry.id);
@@ -433,17 +443,20 @@ function ImplementationTab({ userId }: { userId: string }) {
           </div>
         </div>
       )}
-      {entries.length === 0 ? (
+      {(() => {
+        const filtered = learnerId ? entries.filter(e => e.learnerId === learnerId || !e.learnerId) : entries;
+        return filtered.length === 0 ? (
         <EmptyState icon={ClipboardList} message="No implementation logs yet. Try a strategy and log it!" />
       ) : (
-        entries.slice(0, 20).map(e => (
+        filtered.slice(0, 20).map(e => (
           <div key={e.id} className="rounded-xl border border-border bg-card p-3 shadow-card">
             <span className="text-[10px] text-muted-foreground">{e.date}</span>
             <p className="text-sm font-semibold text-foreground mt-0.5">{e.strategy}</p>
             {e.outcome && <p className="text-xs text-muted-foreground mt-1">{e.outcome}</p>}
           </div>
         ))
-      )}
+      );
+      })()}
     </div>
   );
 }
