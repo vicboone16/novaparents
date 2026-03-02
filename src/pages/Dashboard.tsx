@@ -8,11 +8,12 @@
 import { useEffect, useState } from 'react';
 import {
   BookOpen, PenLine, Lightbulb, ArrowRight,
-  Package, CheckCircle2, AlertTriangle, Clock, Zap, Brain,
+  Package, CheckCircle2, AlertTriangle, Clock, Zap, Brain, User,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { getCurrentUser } from '@/lib/dal';
+import { getCurrentUser, getMyClients, type ClientSummary } from '@/lib/dal';
 import { getDisplayName } from '@/lib/profile-dal';
+import { getLocalLearners, type LocalLearner } from '@/components/IndependentLearnerForm';
 import { Button } from '@/components/ui/button';
 import { fetchSnapshots, getStatusDisplay, type WeeklySnapshot, type SnapshotStatus } from '@/lib/snapshots';
 import { getMyTrainingProgress } from '@/lib/parent-training-dal';
@@ -79,6 +80,8 @@ export default function Dashboard() {
   const [userId, setUserId] = useState('');
   const [snapshots, setSnapshots] = useState<WeeklySnapshot[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [clients, setClients] = useState<ClientSummary[]>([]);
+  const [localLearners, setLocalLearners] = useState<LocalLearner[]>([]);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -137,6 +140,8 @@ export default function Dashboard() {
         } catch { /* ignore */ }
       }
     });
+    getMyClients().then(setClients);
+    setLocalLearners(getLocalLearners());
   }, []);
 
   function handleStartLearning() {
@@ -322,6 +327,30 @@ export default function Dashboard() {
           <Link to="/insights">
             <Button size="sm" variant="outline" className="w-full gap-1.5 mt-1">View in My Insights</Button>
           </Link>
+        </section>
+      )}
+
+      {/* My Learners */}
+      {(clients.length > 0 || localLearners.length > 0) && (
+        <section className="rounded-xl border border-border bg-card p-4 shadow-card space-y-2">
+          <h3 className="font-display text-sm font-bold text-foreground flex items-center gap-2">
+            <User className="h-4 w-4 text-primary" /> My Learner(s)
+          </h3>
+          <ul className="space-y-1.5">
+            {clients.map(c => (
+              <li key={c.id} className="flex items-center gap-2 text-sm text-foreground">
+                <User className="h-3.5 w-3.5 text-muted-foreground" />
+                <span>{c.first_name} {c.last_name}</span>
+              </li>
+            ))}
+            {localLearners.map(l => (
+              <li key={l.id} className="flex items-center gap-2 text-sm text-foreground">
+                <User className="h-3.5 w-3.5 text-muted-foreground" />
+                <span>{l.firstName} {l.lastName}</span>
+                <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">Local</span>
+              </li>
+            ))}
+          </ul>
         </section>
       )}
 
