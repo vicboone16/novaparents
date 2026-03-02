@@ -77,7 +77,6 @@ export function RedeemAgencyInviteCode({ open, onOpenChange, onRedeemed }: Redee
           user_id: user.id,
           agency_id: invite.agency_id,
           role: invite.role || 'staff',
-          linked_via_invite_id: invite.id,
           redeemed_from: 'agency_code',
         });
 
