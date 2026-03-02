@@ -7,6 +7,7 @@ import { getDisplayName, updateDisplayName } from '@/lib/profile-dal';
 import { getMyAgencyAccess, type AgencyAccess } from '@/lib/invite-dal';
 import { RedeemCodeForm } from '@/components/RedeemCodeForm';
 import { RedeemAgencyInviteCode } from '@/components/agency/RedeemAgencyInviteCode';
+import { IndependentLearnerForm } from '@/components/IndependentLearnerForm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -242,9 +243,9 @@ export default function ProfilePage() {
       </div>
 
       {/* My Learners */}
-      <div className="rounded-xl border border-border bg-card p-4 shadow-card">
-        <h3 className="font-display font-bold text-foreground mb-3 text-sm">My Learner(s)</h3>
-        {clients.length > 0 ? (
+      <div className="rounded-xl border border-border bg-card p-4 shadow-card space-y-3">
+        <h3 className="font-display font-bold text-foreground text-sm">My Learner(s)</h3>
+        {clients.length > 0 && (
           <ul className="space-y-2">
             {clients.map(c => (
               <li key={c.id} className="flex items-center gap-2 text-sm text-foreground">
@@ -253,9 +254,11 @@ export default function ProfilePage() {
               </li>
             ))}
           </ul>
-        ) : (
-          <p className="text-sm text-muted-foreground">Your account is not linked to a learner yet.</p>
         )}
+        {clients.length === 0 && (
+          <p className="text-xs text-muted-foreground mb-1">Your account is not linked to a learner yet.</p>
+        )}
+        <IndependentLearnerForm />
       </div>
 
       {/* Coach Email (read-only) */}
