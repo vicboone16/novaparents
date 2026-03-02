@@ -129,6 +129,62 @@ function UnpairedAlert({ entryId, learners, onLink }: {
   );
 }
 
+// ─── Shared: Bulk Link All ───────────────────────────────
+
+function BulkLinkAll({ learners, onLinkAll }: {
+  learners: LearnerOption[];
+  onLinkAll: (learnerId: string) => void;
+}) {
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState('');
+
+  if (!selecting) {
+    return (
+      <Button
+        size="sm"
+        variant="outline"
+        className="h-7 text-[10px] px-2 gap-1 ml-auto"
+        onClick={() => setSelecting(true)}
+      >
+        <Link2 className="h-3 w-3" /> Link All
+      </Button>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1.5 animate-fade-in">
+      <Select value={selected} onValueChange={setSelected}>
+        <SelectTrigger className="h-7 text-[10px] flex-1">
+          <SelectValue placeholder="Assign all to…" />
+        </SelectTrigger>
+        <SelectContent>
+          {learners.map(l => (
+            <SelectItem key={l.id} value={l.id} className="text-xs">
+              {l.name}{l.type === 'local' ? ' (Local)' : ''}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Button
+        size="sm"
+        className="h-7 text-[10px] px-2"
+        disabled={!selected}
+        onClick={() => { onLinkAll(selected); setSelecting(false); }}
+      >
+        Apply
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
+        className="h-7 text-[10px] px-2"
+        onClick={() => setSelecting(false)}
+      >
+        ✕
+      </Button>
+    </div>
+  );
+}
+
 // ─── Main Page ───────────────────────────────────────────
 
 export default function BehaviorLogPage() {
@@ -263,6 +319,10 @@ function ABCTab({ userId, learnerId, learners }: TabProps) {
     setEntries(prev => prev.map(e => e.id === entryId ? { ...e, learnerId: newLearnerId } : e));
   }
 
+  function linkAllUnpaired(newLearnerId: string) {
+    setEntries(prev => prev.map(e => e.learnerId ? e : { ...e, learnerId: newLearnerId }));
+  }
+
   const filtered = learnerId
     ? entries.filter(e => e.learnerId === learnerId)
     : entries;
@@ -313,10 +373,11 @@ function ABCTab({ userId, learnerId, learners }: TabProps) {
 
       {/* Unpaired entries alert */}
       {unpaired.length > 0 && (
-        <div className="rounded-xl border border-warning/30 bg-warning/5 p-3 space-y-2">
+         <div className="rounded-xl border border-warning/30 bg-warning/5 p-3 space-y-2">
           <div className="flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-warning shrink-0" />
-            <p className="text-xs font-semibold text-foreground">{unpaired.length} unlinked {unpaired.length === 1 ? 'entry' : 'entries'}</p>
+            <p className="text-xs font-semibold text-foreground flex-1">{unpaired.length} unlinked {unpaired.length === 1 ? 'entry' : 'entries'}</p>
+            {learners.length > 0 && <BulkLinkAll learners={learners} onLinkAll={linkAllUnpaired} />}
           </div>
           {unpaired.slice(0, 5).map(entry => (
             <div key={entry.id} className="rounded-lg border border-border bg-card p-2.5">
@@ -386,6 +447,10 @@ function FrequencyTab({ userId, learnerId, learners }: TabProps) {
     setEntries(prev => prev.map(e => e.id === entryId ? { ...e, learnerId: newLearnerId } : e));
   }
 
+  function linkAllUnpaired(newLearnerId: string) {
+    setEntries(prev => prev.map(e => e.learnerId ? e : { ...e, learnerId: newLearnerId }));
+  }
+
   const filtered = learnerId ? entries.filter(e => e.learnerId === learnerId) : entries;
   const unpaired = entries.filter(e => !e.learnerId);
 
@@ -425,7 +490,8 @@ function FrequencyTab({ userId, learnerId, learners }: TabProps) {
         <div className="rounded-xl border border-warning/30 bg-warning/5 p-3 space-y-2">
           <div className="flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-warning shrink-0" />
-            <p className="text-xs font-semibold text-foreground">{unpaired.length} unlinked {unpaired.length === 1 ? 'entry' : 'entries'}</p>
+            <p className="text-xs font-semibold text-foreground flex-1">{unpaired.length} unlinked {unpaired.length === 1 ? 'entry' : 'entries'}</p>
+            {learners.length > 0 && <BulkLinkAll learners={learners} onLinkAll={linkAllUnpaired} />}
           </div>
           {unpaired.slice(0, 3).map(e => (
             <div key={e.id} className="rounded-lg border border-border bg-card p-2.5">
@@ -482,6 +548,10 @@ function DurationTab({ userId, learnerId, learners }: TabProps) {
     setEntries(prev => prev.map(e => e.id === entryId ? { ...e, learnerId: newLearnerId } : e));
   }
 
+  function linkAllUnpaired(newLearnerId: string) {
+    setEntries(prev => prev.map(e => e.learnerId ? e : { ...e, learnerId: newLearnerId }));
+  }
+
   const filtered = learnerId ? entries.filter(e => e.learnerId === learnerId) : entries;
   const unpaired = entries.filter(e => !e.learnerId);
 
@@ -517,7 +587,8 @@ function DurationTab({ userId, learnerId, learners }: TabProps) {
         <div className="rounded-xl border border-warning/30 bg-warning/5 p-3 space-y-2">
           <div className="flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-warning shrink-0" />
-            <p className="text-xs font-semibold text-foreground">{unpaired.length} unlinked {unpaired.length === 1 ? 'entry' : 'entries'}</p>
+            <p className="text-xs font-semibold text-foreground flex-1">{unpaired.length} unlinked {unpaired.length === 1 ? 'entry' : 'entries'}</p>
+            {learners.length > 0 && <BulkLinkAll learners={learners} onLinkAll={linkAllUnpaired} />}
           </div>
           {unpaired.slice(0, 3).map(e => (
             <div key={e.id} className="rounded-lg border border-border bg-card p-2.5">
@@ -573,6 +644,10 @@ function ImplementationTab({ userId, learnerId, learners }: TabProps) {
     setEntries(prev => prev.map(e => e.id === entryId ? { ...e, learnerId: newLearnerId } : e));
   }
 
+  function linkAllUnpaired(newLearnerId: string) {
+    setEntries(prev => prev.map(e => e.learnerId ? e : { ...e, learnerId: newLearnerId }));
+  }
+
   const filtered = learnerId ? entries.filter(e => e.learnerId === learnerId) : entries;
   const unpaired = entries.filter(e => !e.learnerId);
 
@@ -606,7 +681,8 @@ function ImplementationTab({ userId, learnerId, learners }: TabProps) {
         <div className="rounded-xl border border-warning/30 bg-warning/5 p-3 space-y-2">
           <div className="flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-warning shrink-0" />
-            <p className="text-xs font-semibold text-foreground">{unpaired.length} unlinked {unpaired.length === 1 ? 'entry' : 'entries'}</p>
+            <p className="text-xs font-semibold text-foreground flex-1">{unpaired.length} unlinked {unpaired.length === 1 ? 'entry' : 'entries'}</p>
+            {learners.length > 0 && <BulkLinkAll learners={learners} onLinkAll={linkAllUnpaired} />}
           </div>
           {unpaired.slice(0, 3).map(e => (
             <div key={e.id} className="rounded-lg border border-border bg-card p-2.5">
