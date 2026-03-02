@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { Home, Wrench, BookOpen, Gamepad2, User, BarChart3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useEngagement } from '@/hooks/useEngagement';
@@ -8,11 +8,12 @@ const navItems = [
   { to: '/academy', label: 'Academy', icon: BookOpen },
   { to: '/insights', label: 'Insights', icon: BarChart3 },
   { to: '/toolkit', label: 'Toolkit', icon: Wrench },
-  { to: '/profile', label: 'Profile', icon: User },
+  { to: '/behavior-lab', label: 'Lab', icon: Gamepad2 },
 ];
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   useEngagement();
+  const navigate = useNavigate();
   return (
     <div className="min-h-screen bg-background pb-20">
       {/* Top Bar */}
@@ -21,11 +22,18 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           <div className="flex h-8 w-8 items-center justify-center rounded-xl gradient-hero">
             <span className="text-sm font-bold text-primary-foreground">B</span>
           </div>
-          <div>
+          <div className="flex-1">
             <h1 className="font-display text-base font-bold leading-tight text-foreground">
               Behavior Decoded™
             </h1>
           </div>
+          <button
+            onClick={() => navigate('/profile')}
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+            aria-label="Profile"
+          >
+            <User className="h-4 w-4" />
+          </button>
         </div>
       </header>
 
