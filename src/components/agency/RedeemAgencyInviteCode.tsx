@@ -24,15 +24,71 @@ export function RedeemAgencyInviteCode({ open, onOpenChange, onRedeemed }: Redee
     if (!code.trim()) return;
     setRedeeming(true);
     try {
-      const { data, error } = await (supabase as any).rpc('redeem_agency_invite_code', {
-        p_code: code.trim(),
-      });
-      if (error) throw error;
-      const result = data as any;
-      if (!result.success) {
-        toast.error(result.error || 'Failed to redeem code');
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error('You must be logged in to join an agency.');
         return;
       }
+
+      // Look up the code in agency_invite_codes
+      const { data: invite, error: lookupErr } = await (supabase as any)
+        .from('agency_invite_codes')
+        .select('*')
+        .eq('code', code.trim().toUpperCase())
+        .single();
+
+      if (lookupErr || !invite) {
+        toast.error('Code not found. Please check and try again.');
+        return;
+      }
+
+      if (!invite.is_active) {
+        toast.error('This code is no longer active.');
+        return;
+      }
+
+      if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
+        toast.error('This code has expired.');
+        return;
+      }
+
+      if (invite.uses >= invite.max_uses) {
+        toast.error('This code has reached its usage limit.');
+        return;
+      }
+
+      // Check if already linked
+      const { data: existing } = await supabase
+        .from('user_agency_access')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('agency_id', invite.agency_id)
+        .maybeSingle();
+
+      if (existing) {
+        toast.error('You are already linked to this agency.');
+        return;
+      }
+
+      // Insert access record
+      const { error: insertErr } = await supabase
+        .from('user_agency_access')
+        .insert({
+          user_id: user.id,
+          agency_id: invite.agency_id,
+          role: invite.role || 'staff',
+          linked_via_invite_id: invite.id,
+          redeemed_from: 'agency_code',
+        });
+
+      if (insertErr) throw insertErr;
+
+      // Increment uses
+      await (supabase as any)
+        .from('agency_invite_codes')
+        .update({ uses: invite.uses + 1 })
+        .eq('id', invite.id);
+
       setSuccess(true);
       toast.success('Successfully joined agency!');
       onRedeemed?.();
