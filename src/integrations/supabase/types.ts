@@ -382,6 +382,48 @@ export type Database = {
         }
         Relationships: []
       }
+      agency_invite_codes: {
+        Row: {
+          agency_id: string
+          code: string
+          created_at: string
+          created_by: string | null
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          max_uses: number
+          role: string
+          updated_at: string
+          uses: number
+        }
+        Insert: {
+          agency_id: string
+          code: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          max_uses?: number
+          role?: string
+          updated_at?: string
+          uses?: number
+        }
+        Update: {
+          agency_id?: string
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          max_uses?: number
+          role?: string
+          updated_at?: string
+          uses?: number
+        }
+        Relationships: []
+      }
       app_handshake: {
         Row: {
           app_slug: string
