@@ -45,11 +45,37 @@ export async function checkHandshake(): Promise<{ appSlug: string | null }> {
   const { data, error } = await (supabase as any)
     .from('app_handshake')
     .select('app_slug')
-    .eq('id', 1)
+    .eq('id', 3)
     .single();
 
   if (error) throw new Error('Unable to verify backend connection.');
   return { appSlug: data?.app_slug ?? null };
+}
+
+// ─── App Access Gating ──────────────────────────────────
+
+export interface AppAccess {
+  hasAccess: boolean;
+  role: string | null;
+}
+
+export async function checkAppAccess(): Promise<AppAccess> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { hasAccess: false, role: null };
+
+  const { data, error } = await (supabase as any)
+    .from('user_app_access')
+    .select('role')
+    .eq('user_id', user.id)
+    .eq('app_slug', 'behaviordecoded')
+    .maybeSingle();
+
+  if (error) {
+    console.warn('[DAL] user_app_access check:', error.message);
+    return { hasAccess: false, role: null };
+  }
+
+  return { hasAccess: !!data, role: data?.role ?? null };
 }
 
 // ─── Diagnostics ─────────────────────────────────────────
@@ -73,7 +99,20 @@ export async function getMyClients(): Promise<ClientSummary[]> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return [];
 
-    // Step 1: get student IDs from user_student_access
+    // Step 1: get visible student IDs scoped to this app
+    const { data: visRows, error: visErr } = await (supabase as any)
+      .from('student_app_visibility')
+      .select('student_id')
+      .eq('app_slug', 'behaviordecoded');
+
+    if (visErr || !visRows?.length) {
+      if (visErr) console.warn('[DAL] student_app_visibility read:', visErr.message);
+      return [];
+    }
+
+    const visibleStudentIds = new Set(visRows.map((r: any) => r.student_id).filter(Boolean));
+
+    // Step 1b: get student IDs from user_student_access
     const { data: accessRows, error: accessErr } = await (supabase as any)
       .from('user_student_access')
       .select('client_id')
@@ -84,7 +123,10 @@ export async function getMyClients(): Promise<ClientSummary[]> {
       return [];
     }
 
-    const studentIds = accessRows.map((r: any) => r.client_id).filter(Boolean);
+    // Intersect: only students the user has access to AND are visible in this app
+    const studentIds = accessRows
+      .map((r: any) => r.client_id)
+      .filter((id: string) => id && visibleStudentIds.has(id));
     if (studentIds.length === 0) return [];
 
     // Step 2: fetch student details
