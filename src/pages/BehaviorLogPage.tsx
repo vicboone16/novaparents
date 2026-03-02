@@ -6,9 +6,10 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
-import { PenLine, Plus, Clock, MapPin, AlertTriangle, Hash, Timer, ClipboardList, Play, Pause, Square } from 'lucide-react';
-import { getCurrentUser } from '@/lib/dal';
+import { PenLine, Plus, Clock, MapPin, AlertTriangle, Hash, Timer, ClipboardList, Play, Pause, Square, User } from 'lucide-react';
+import { getCurrentUser, getMyClients, type ClientSummary } from '@/lib/dal';
 import { logBehaviorLogCreated, logImplementationLogCreated } from '@/lib/engagement';
+import { getLocalLearners, type LocalLearner } from '@/components/IndependentLearnerForm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -47,11 +48,29 @@ const intensityLabels: Record<number, { label: string; cls: string }> = {
   5: { label: '5 – Severe', cls: 'bg-destructive/10 text-destructive' },
 };
 
+type LearnerOption = { id: string; name: string; type: 'linked' | 'local' };
+
 export default function BehaviorLogPage() {
   const [tab, setTab] = useState<LogTab>('abc');
   const [userId, setUserId] = useState('');
+  const [learners, setLearners] = useState<LearnerOption[]>([]);
+  const [selectedLearner, setSelectedLearner] = useState('');
 
-  useEffect(() => { getCurrentUser().then(u => { if (u) setUserId(u.id); }); }, []);
+  useEffect(() => {
+    getCurrentUser().then(u => { if (u) setUserId(u.id); });
+    // Load all learners (linked + local)
+    getMyClients().then(clients => {
+      const linked: LearnerOption[] = clients.map(c => ({
+        id: c.id, name: `${c.first_name} ${c.last_name}`, type: 'linked',
+      }));
+      const local: LearnerOption[] = getLocalLearners().map(l => ({
+        id: l.id, name: `${l.firstName} ${l.lastName}`, type: 'local',
+      }));
+      const all = [...linked, ...local];
+      setLearners(all);
+      if (all.length === 1) setSelectedLearner(all[0].id);
+    });
+  }, []);
 
   const tabs: { key: LogTab; label: string; icon: React.ElementType }[] = [
     { key: 'abc', label: 'ABC', icon: PenLine },
@@ -67,6 +86,25 @@ export default function BehaviorLogPage() {
         <h2 className="font-display text-2xl font-bold text-foreground">Learner Data Log</h2>
         <p className="mt-1 text-sm text-muted-foreground">Track behaviors and implementation for your Learner.</p>
       </div>
+
+      {/* Learner selector */}
+      {learners.length > 0 && (
+        <div className="flex items-center gap-2">
+          <User className="h-4 w-4 text-muted-foreground shrink-0" />
+          <Select value={selectedLearner} onValueChange={setSelectedLearner}>
+            <SelectTrigger className="flex-1">
+              <SelectValue placeholder="Select a learner" />
+            </SelectTrigger>
+            <SelectContent>
+              {learners.map(l => (
+                <SelectItem key={l.id} value={l.id}>
+                  {l.name}{l.type === 'local' ? ' (Local)' : ''}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       {/* Tab bar */}
       <div className="flex gap-1 overflow-x-auto pb-1">
