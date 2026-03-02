@@ -830,6 +830,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      redeem_agency_invite_code: { Args: { _code: string }; Returns: Json }
       redeem_invite_code: {
         Args: { _code: string; _redeemed_from?: string }
         Returns: Json
