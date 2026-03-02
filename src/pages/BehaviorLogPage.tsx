@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
-import { PenLine, Plus, Clock, MapPin, AlertTriangle, Hash, Timer, ClipboardList, Play, Pause, Square, User } from 'lucide-react';
+import { PenLine, Plus, Clock, MapPin, AlertTriangle, Hash, Timer, ClipboardList, Play, Pause, Square, User, Link2 } from 'lucide-react';
 import { getCurrentUser, getMyClients, type ClientSummary } from '@/lib/dal';
 import { logBehaviorLogCreated, logImplementationLogCreated } from '@/lib/engagement';
 import { getLocalLearners, type LocalLearner } from '@/components/IndependentLearnerForm';
@@ -32,6 +32,7 @@ interface ImplEntry {
 }
 
 type LogTab = 'abc' | 'frequency' | 'duration' | 'implementation' | 'timer';
+type LearnerOption = { id: string; name: string; type: 'linked' | 'local' };
 
 // ─── Storage helpers ─────────────────────────────────────
 
@@ -48,7 +49,87 @@ const intensityLabels: Record<number, { label: string; cls: string }> = {
   5: { label: '5 – Severe', cls: 'bg-destructive/10 text-destructive' },
 };
 
-type LearnerOption = { id: string; name: string; type: 'linked' | 'local' };
+function getLearnerName(learnerId: string | undefined, learners: LearnerOption[]): string | null {
+  if (!learnerId) return null;
+  return learners.find(l => l.id === learnerId)?.name || null;
+}
+
+// ─── Shared: Learner badge on entry cards ────────────────
+
+function LearnerBadge({ learnerId, learners }: { learnerId?: string; learners: LearnerOption[] }) {
+  const name = getLearnerName(learnerId, learners);
+  if (name) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 text-primary px-2 py-0.5 text-[10px] font-semibold">
+        <User className="h-2.5 w-2.5" /> {name}
+      </span>
+    );
+  }
+  return null;
+}
+
+// ─── Shared: Unpaired entry alert ────────────────────────
+
+function UnpairedAlert({ entryId, learners, onLink }: {
+  entryId: string;
+  learners: LearnerOption[];
+  onLink: (entryId: string, learnerId: string) => void;
+}) {
+  const [linking, setLinking] = useState(false);
+  const [selected, setSelected] = useState('');
+
+  if (!linking) {
+    return (
+      <div className="flex items-center gap-1.5 mt-1.5 rounded-lg bg-warning/10 border border-warning/20 px-2.5 py-1.5">
+        <AlertTriangle className="h-3 w-3 text-warning shrink-0" />
+        <span className="text-[10px] text-foreground flex-1">Not linked to a learner</span>
+        {learners.length > 0 && (
+          <button
+            onClick={() => setLinking(true)}
+            className="text-[10px] font-semibold text-primary flex items-center gap-0.5 hover:underline"
+          >
+            <Link2 className="h-3 w-3" /> Link
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1.5 mt-1.5 animate-fade-in">
+      <Select value={selected} onValueChange={setSelected}>
+        <SelectTrigger className="h-7 text-[10px] flex-1">
+          <SelectValue placeholder="Select learner" />
+        </SelectTrigger>
+        <SelectContent>
+          {learners.map(l => (
+            <SelectItem key={l.id} value={l.id} className="text-xs">
+              {l.name}{l.type === 'local' ? ' (Local)' : ''}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Button
+        size="sm"
+        className="h-7 text-[10px] px-2"
+        disabled={!selected}
+        onClick={() => { onLink(entryId, selected); setLinking(false); }}
+      >
+        Save
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
+        className="h-7 text-[10px] px-2"
+        onClick={() => setLinking(false)}
+      >
+        ✕
+      </Button>
+    </div>
+  );
+}
+
+// ─── Main Page ───────────────────────────────────────────
 
 export default function BehaviorLogPage() {
   const [tab, setTab] = useState<LogTab>('abc');
@@ -58,7 +139,6 @@ export default function BehaviorLogPage() {
 
   useEffect(() => {
     getCurrentUser().then(u => { if (u) setUserId(u.id); });
-    // Load all learners (linked + local)
     getMyClients().then(clients => {
       const linked: LearnerOption[] = clients.map(c => ({
         id: c.id, name: `${c.first_name} ${c.last_name}`, type: 'linked',
@@ -127,45 +207,40 @@ export default function BehaviorLogPage() {
         <span>Saved locally. Syncs to your Weekly Snapshot.</span>
       </div>
 
-      {tab === 'abc' && <ABCTab userId={userId} learnerId={selectedLearner} />}
-      {tab === 'frequency' && <FrequencyTab userId={userId} learnerId={selectedLearner} />}
-      {tab === 'duration' && <DurationTab userId={userId} learnerId={selectedLearner} />}
-      {tab === 'implementation' && <ImplementationTab userId={userId} learnerId={selectedLearner} />}
+      {tab === 'abc' && <ABCTab userId={userId} learnerId={selectedLearner} learners={learners} />}
+      {tab === 'frequency' && <FrequencyTab userId={userId} learnerId={selectedLearner} learners={learners} />}
+      {tab === 'duration' && <DurationTab userId={userId} learnerId={selectedLearner} learners={learners} />}
+      {tab === 'implementation' && <ImplementationTab userId={userId} learnerId={selectedLearner} learners={learners} />}
       {tab === 'timer' && <SessionTimerTab />}
     </div>
   );
 }
 
+// ─── Shared tab props ────────────────────────────────────
+
+interface TabProps { userId: string; learnerId: string; learners: LearnerOption[] }
+
 // ─── ABC Tab ─────────────────────────────────────────────
 
-function ABCTab({ userId, learnerId }: { userId: string; learnerId: string }) {
+function ABCTab({ userId, learnerId, learners }: TabProps) {
   const [entries, setEntries] = useState<ABCEntry[]>(() => load('bd_behavior_log'));
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(() => {
-    // Check for prefill from Behavior Translator
     try {
       const prefill = sessionStorage.getItem('bd_prefill_abc');
       if (prefill) {
         sessionStorage.removeItem('bd_prefill_abc');
         const data = JSON.parse(prefill);
         return {
-          behavior: data.behavior || '',
-          antecedent: data.antecedent || '',
-          consequence: data.consequence || '',
-          intensity: '',
-          setting: data.setting || '',
-          notes: '',
+          behavior: data.behavior || '', antecedent: data.antecedent || '',
+          consequence: data.consequence || '', intensity: '', setting: data.setting || '', notes: '',
         };
       }
     } catch {}
     return { behavior: '', antecedent: '', consequence: '', intensity: '', setting: '', notes: '' };
   });
 
-  // Auto-open form if prefilled
-  useEffect(() => {
-    if (form.behavior) setShowForm(true);
-  }, []);
-
+  useEffect(() => { if (form.behavior) setShowForm(true); }, []);
   useEffect(() => { save('bd_behavior_log', entries); }, [entries]);
 
   function handleSave() {
@@ -183,6 +258,15 @@ function ABCTab({ userId, learnerId }: { userId: string; learnerId: string }) {
     setForm({ behavior: '', antecedent: '', consequence: '', intensity: '', setting: '', notes: '' });
     setShowForm(false);
   }
+
+  function linkEntry(entryId: string, newLearnerId: string) {
+    setEntries(prev => prev.map(e => e.id === entryId ? { ...e, learnerId: newLearnerId } : e));
+  }
+
+  const filtered = learnerId
+    ? entries.filter(e => e.learnerId === learnerId)
+    : entries;
+  const unpaired = entries.filter(e => !e.learnerId);
 
   return (
     <div className="space-y-3">
@@ -226,10 +310,29 @@ function ABCTab({ userId, learnerId }: { userId: string; learnerId: string }) {
           </div>
         </div>
       )}
-      {(() => {
-        const filtered = learnerId ? entries.filter(e => e.learnerId === learnerId || !e.learnerId) : entries;
-        return filtered.length === 0 ? (
-        <EmptyState icon={PenLine} message="No ABC entries yet." />
+
+      {/* Unpaired entries alert */}
+      {unpaired.length > 0 && (
+        <div className="rounded-xl border border-warning/30 bg-warning/5 p-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-warning shrink-0" />
+            <p className="text-xs font-semibold text-foreground">{unpaired.length} unlinked {unpaired.length === 1 ? 'entry' : 'entries'}</p>
+          </div>
+          {unpaired.slice(0, 5).map(entry => (
+            <div key={entry.id} className="rounded-lg border border-border bg-card p-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-foreground truncate flex-1">{entry.behavior}</span>
+                <span className="text-[10px] text-muted-foreground ml-2">{entry.date}</span>
+              </div>
+              <UnpairedAlert entryId={entry.id} learners={learners} onLink={linkEntry} />
+            </div>
+          ))}
+          {unpaired.length > 5 && <p className="text-[10px] text-muted-foreground text-center">+{unpaired.length - 5} more</p>}
+        </div>
+      )}
+
+      {filtered.length === 0 ? (
+        <EmptyState icon={PenLine} message={learnerId ? "No ABC entries for this learner." : "No ABC entries yet."} />
       ) : (
         filtered.slice(0, 20).map(entry => {
           const ic = intensityLabels[entry.intensity] || intensityLabels[3];
@@ -239,7 +342,10 @@ function ABCTab({ userId, learnerId }: { userId: string; learnerId: string }) {
                 <span className="text-[10px] text-muted-foreground flex items-center gap-1"><Clock className="h-3 w-3" />{entry.date} {entry.time}{entry.setting && <> · <MapPin className="h-3 w-3" />{entry.setting}</>}</span>
                 <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${ic.cls}`}>{entry.intensity}/5</span>
               </div>
-              <p className="text-sm font-semibold text-foreground">{entry.behavior}</p>
+              <div className="flex items-center gap-2 mb-0.5">
+                <p className="text-sm font-semibold text-foreground flex-1">{entry.behavior}</p>
+                <LearnerBadge learnerId={entry.learnerId} learners={learners} />
+              </div>
               {(entry.antecedent || entry.consequence) && (
                 <div className="mt-1.5 grid gap-1.5 sm:grid-cols-2">
                   {entry.antecedent && <div className="rounded bg-muted p-2"><p className="text-[10px] font-semibold text-muted-foreground uppercase">Before</p><p className="text-xs text-foreground">{entry.antecedent}</p></div>}
@@ -249,15 +355,14 @@ function ABCTab({ userId, learnerId }: { userId: string; learnerId: string }) {
             </div>
           );
         })
-      );
-      })()}
+      )}
     </div>
   );
 }
 
 // ─── Frequency Tab ───────────────────────────────────────
 
-function FrequencyTab({ userId, learnerId }: { userId: string; learnerId: string }) {
+function FrequencyTab({ userId, learnerId, learners }: TabProps) {
   const [entries, setEntries] = useState<FrequencyEntry[]>(() => load('bd_frequency_log'));
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ behavior: '', count: '', period: '', setting: '', notes: '' });
@@ -276,6 +381,13 @@ function FrequencyTab({ userId, learnerId }: { userId: string; learnerId: string
     setForm({ behavior: '', count: '', period: '', setting: '', notes: '' });
     setShowForm(false);
   }
+
+  function linkEntry(entryId: string, newLearnerId: string) {
+    setEntries(prev => prev.map(e => e.id === entryId ? { ...e, learnerId: newLearnerId } : e));
+  }
+
+  const filtered = learnerId ? entries.filter(e => e.learnerId === learnerId) : entries;
+  const unpaired = entries.filter(e => !e.learnerId);
 
   return (
     <div className="space-y-3">
@@ -308,10 +420,24 @@ function FrequencyTab({ userId, learnerId }: { userId: string; learnerId: string
           </div>
         </div>
       )}
-      {(() => {
-        const filtered = learnerId ? entries.filter(e => e.learnerId === learnerId || !e.learnerId) : entries;
-        return filtered.length === 0 ? (
-        <EmptyState icon={Hash} message="No frequency entries yet." />
+
+      {unpaired.length > 0 && (
+        <div className="rounded-xl border border-warning/30 bg-warning/5 p-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-warning shrink-0" />
+            <p className="text-xs font-semibold text-foreground">{unpaired.length} unlinked {unpaired.length === 1 ? 'entry' : 'entries'}</p>
+          </div>
+          {unpaired.slice(0, 3).map(e => (
+            <div key={e.id} className="rounded-lg border border-border bg-card p-2.5">
+              <span className="text-xs font-semibold text-foreground">{e.behavior} ({e.count}×)</span>
+              <UnpairedAlert entryId={e.id} learners={learners} onLink={linkEntry} />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {filtered.length === 0 ? (
+        <EmptyState icon={Hash} message={learnerId ? "No frequency entries for this learner." : "No frequency entries yet."} />
       ) : (
         filtered.slice(0, 20).map(e => (
           <div key={e.id} className="rounded-xl border border-border bg-card p-3 shadow-card">
@@ -319,19 +445,21 @@ function FrequencyTab({ userId, learnerId }: { userId: string; learnerId: string
               <span className="text-[10px] text-muted-foreground">{e.date}{e.setting && ` · ${e.setting}`}</span>
               <span className="rounded-full bg-primary/10 text-primary px-2 py-0.5 text-[10px] font-bold">{e.count}×</span>
             </div>
-            <p className="text-sm font-semibold text-foreground">{e.behavior}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-semibold text-foreground flex-1">{e.behavior}</p>
+              <LearnerBadge learnerId={e.learnerId} learners={learners} />
+            </div>
             <p className="text-xs text-muted-foreground">per {e.period}</p>
           </div>
         ))
-      );
-      })()}
+      )}
     </div>
   );
 }
 
 // ─── Duration Tab ────────────────────────────────────────
 
-function DurationTab({ userId, learnerId }: { userId: string; learnerId: string }) {
+function DurationTab({ userId, learnerId, learners }: TabProps) {
   const [entries, setEntries] = useState<DurationEntry[]>(() => load('bd_duration_log'));
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ behavior: '', durationMin: '', setting: '', notes: '' });
@@ -349,6 +477,13 @@ function DurationTab({ userId, learnerId }: { userId: string; learnerId: string 
     setForm({ behavior: '', durationMin: '', setting: '', notes: '' });
     setShowForm(false);
   }
+
+  function linkEntry(entryId: string, newLearnerId: string) {
+    setEntries(prev => prev.map(e => e.id === entryId ? { ...e, learnerId: newLearnerId } : e));
+  }
+
+  const filtered = learnerId ? entries.filter(e => e.learnerId === learnerId) : entries;
+  const unpaired = entries.filter(e => !e.learnerId);
 
   return (
     <div className="space-y-3">
@@ -377,10 +512,24 @@ function DurationTab({ userId, learnerId }: { userId: string; learnerId: string 
           </div>
         </div>
       )}
-      {(() => {
-        const filtered = learnerId ? entries.filter(e => e.learnerId === learnerId || !e.learnerId) : entries;
-        return filtered.length === 0 ? (
-        <EmptyState icon={Clock} message="No duration entries yet." />
+
+      {unpaired.length > 0 && (
+        <div className="rounded-xl border border-warning/30 bg-warning/5 p-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-warning shrink-0" />
+            <p className="text-xs font-semibold text-foreground">{unpaired.length} unlinked {unpaired.length === 1 ? 'entry' : 'entries'}</p>
+          </div>
+          {unpaired.slice(0, 3).map(e => (
+            <div key={e.id} className="rounded-lg border border-border bg-card p-2.5">
+              <span className="text-xs font-semibold text-foreground">{e.behavior} ({e.durationMin}m)</span>
+              <UnpairedAlert entryId={e.id} learners={learners} onLink={linkEntry} />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {filtered.length === 0 ? (
+        <EmptyState icon={Clock} message={learnerId ? "No duration entries for this learner." : "No duration entries yet."} />
       ) : (
         filtered.slice(0, 20).map(e => (
           <div key={e.id} className="rounded-xl border border-border bg-card p-3 shadow-card">
@@ -388,18 +537,20 @@ function DurationTab({ userId, learnerId }: { userId: string; learnerId: string 
               <span className="text-[10px] text-muted-foreground">{e.date}{e.setting && ` · ${e.setting}`}</span>
               <span className="rounded-full bg-accent/10 text-accent px-2 py-0.5 text-[10px] font-bold">{e.durationMin}m</span>
             </div>
-            <p className="text-sm font-semibold text-foreground">{e.behavior}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-semibold text-foreground flex-1">{e.behavior}</p>
+              <LearnerBadge learnerId={e.learnerId} learners={learners} />
+            </div>
           </div>
         ))
-      );
-      })()}
+      )}
     </div>
   );
 }
 
 // ─── Implementation Tab ──────────────────────────────────
 
-function ImplementationTab({ userId, learnerId }: { userId: string; learnerId: string }) {
+function ImplementationTab({ userId, learnerId, learners }: TabProps) {
   const [entries, setEntries] = useState<ImplEntry[]>(() => load('bd_implementation_log'));
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ strategy: '', context: '', outcome: '', notes: '' });
@@ -417,6 +568,13 @@ function ImplementationTab({ userId, learnerId }: { userId: string; learnerId: s
     setForm({ strategy: '', context: '', outcome: '', notes: '' });
     setShowForm(false);
   }
+
+  function linkEntry(entryId: string, newLearnerId: string) {
+    setEntries(prev => prev.map(e => e.id === entryId ? { ...e, learnerId: newLearnerId } : e));
+  }
+
+  const filtered = learnerId ? entries.filter(e => e.learnerId === learnerId) : entries;
+  const unpaired = entries.filter(e => !e.learnerId);
 
   return (
     <div className="space-y-3">
@@ -443,20 +601,36 @@ function ImplementationTab({ userId, learnerId }: { userId: string; learnerId: s
           </div>
         </div>
       )}
-      {(() => {
-        const filtered = learnerId ? entries.filter(e => e.learnerId === learnerId || !e.learnerId) : entries;
-        return filtered.length === 0 ? (
-        <EmptyState icon={ClipboardList} message="No implementation logs yet. Try a strategy and log it!" />
+
+      {unpaired.length > 0 && (
+        <div className="rounded-xl border border-warning/30 bg-warning/5 p-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-warning shrink-0" />
+            <p className="text-xs font-semibold text-foreground">{unpaired.length} unlinked {unpaired.length === 1 ? 'entry' : 'entries'}</p>
+          </div>
+          {unpaired.slice(0, 3).map(e => (
+            <div key={e.id} className="rounded-lg border border-border bg-card p-2.5">
+              <span className="text-xs font-semibold text-foreground">{e.strategy}</span>
+              <UnpairedAlert entryId={e.id} learners={learners} onLink={linkEntry} />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {filtered.length === 0 ? (
+        <EmptyState icon={ClipboardList} message={learnerId ? "No implementation logs for this learner." : "No implementation logs yet. Try a strategy and log it!"} />
       ) : (
         filtered.slice(0, 20).map(e => (
           <div key={e.id} className="rounded-xl border border-border bg-card p-3 shadow-card">
             <span className="text-[10px] text-muted-foreground">{e.date}</span>
-            <p className="text-sm font-semibold text-foreground mt-0.5">{e.strategy}</p>
+            <div className="flex items-center gap-2 mt-0.5">
+              <p className="text-sm font-semibold text-foreground flex-1">{e.strategy}</p>
+              <LearnerBadge learnerId={e.learnerId} learners={learners} />
+            </div>
             {e.outcome && <p className="text-xs text-muted-foreground mt-1">{e.outcome}</p>}
           </div>
         ))
-      );
-      })()}
+      )}
     </div>
   );
 }
