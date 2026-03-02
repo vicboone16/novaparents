@@ -118,9 +118,9 @@ export function RedeemAgencyInviteCode({ open, onOpenChange, onRedeemed }: Redee
         </DialogHeader>
         {success ? (
           <div className="py-6 text-center space-y-3">
-            <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto" />
+            <CheckCircle2 className="h-12 w-12 text-success mx-auto" />
             <p className="font-medium">You've joined the agency!</p>
-            <p className="text-sm text-muted-foreground">Refresh to see it.</p>
+            <p className="text-sm text-muted-foreground">Your account is now connected.</p>
             <Button onClick={handleClose} className="mt-2">Done</Button>
           </div>
         ) : (
