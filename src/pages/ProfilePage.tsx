@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { getCurrentUser, signOut, checkHandshake, getMaskedBackendUrl, getMyClients, type ClientSummary } from '@/lib/dal';
-import { User, Bell, Wrench, LogOut, CheckCircle2, XCircle, Star, Pencil, Ticket, Link2, Copy } from 'lucide-react';
+import { User, Bell, Wrench, LogOut, CheckCircle2, XCircle, Star, Pencil, Ticket, Link2, Copy, Building2 } from 'lucide-react';
 import { getMyTrainingProgress, type TrainingProgress } from '@/lib/parent-training-dal';
 import { getMyAttempts } from '@/lib/behavior-lab-dal';
 import { getDisplayName, updateDisplayName } from '@/lib/profile-dal';
 import { getMyAgencyAccess, type AgencyAccess } from '@/lib/invite-dal';
 import { RedeemCodeForm } from '@/components/RedeemCodeForm';
+import { RedeemAgencyInviteCode } from '@/components/agency/RedeemAgencyInviteCode';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -25,6 +26,7 @@ export default function ProfilePage() {
   const [copied, setCopied] = useState(false);
   const [agencyAccess, setAgencyAccess] = useState<AgencyAccess[]>([]);
   const [showRedeem, setShowRedeem] = useState(false);
+  const [showAgencyRedeem, setShowAgencyRedeem] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState('');
@@ -314,6 +316,20 @@ export default function ProfilePage() {
           </div>
         )}
       </div>
+
+      {/* Join Agency with Code */}
+      <Button variant="outline" className="w-full gap-2" onClick={() => setShowAgencyRedeem(true)}>
+        <Building2 className="h-4 w-4" /> Join Agency with Code
+      </Button>
+
+      <RedeemAgencyInviteCode
+        open={showAgencyRedeem}
+        onOpenChange={setShowAgencyRedeem}
+        onRedeemed={() => {
+          getMyAgencyAccess().then(setAgencyAccess);
+          getMyClients().then(setClients);
+        }}
+      />
 
       {/* Logout */}
       <Button variant="outline" className="w-full gap-2" onClick={handleLogout}>
