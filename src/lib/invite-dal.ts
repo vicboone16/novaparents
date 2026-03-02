@@ -27,8 +27,10 @@ export async function redeemInviteCode(
   code: string,
   redeemedFrom: 'signup' | 'settings' = 'settings'
 ): Promise<RedeemResult> {
+  const normalizedCode = code.trim().toUpperCase();
+
   const { data, error } = await (supabase as any).rpc('redeem_invite_code', {
-    _code: code,
+    _code: normalizedCode,
     _redeemed_from: redeemedFrom,
   });
 
@@ -38,7 +40,11 @@ export async function redeemInviteCode(
 
   const result = data as unknown as RedeemResult;
   if (!result.success && result.error) {
-    result.error = ERROR_MESSAGES[result.error] || result.error;
+    if (result.error === 'already_linked' && normalizedCode.startsWith('BD-')) {
+      result.error = "You're already linked to this learner.";
+    } else {
+      result.error = ERROR_MESSAGES[result.error] || result.error;
+    }
   }
 
   return result;
