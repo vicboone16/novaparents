@@ -2,17 +2,26 @@
  * Data Access Layer (DAL)
  * ──────────────────────
  * All reads/writes to the backend flow through this module.
- * Phase 1: talks directly to the NovaTrack Supabase backend.
- * Phase 2: swap the implementation to a dedicated Parent API
- *          without touching any screen components.
+ * Uses an edge function proxy to access the shared NovaTrack backend
+ * for cross-app tables (handshake, access gating, students).
  *
  * Rules:
- *  - Only access parent-safe surfaces (public.clients,
- *    public.user_client_access, public.parent_safe_* views/tables).
+ *  - Only access parent-safe surfaces.
  *  - Never touch raw clinical tables.
  */
 
 import { supabase } from '@/integrations/supabase/client';
+
+// ─── NovaTrack Proxy helper ─────────────────────────────
+
+async function callNovaTrackProxy(action: string, params?: Record<string, unknown>) {
+  const { data, error } = await supabase.functions.invoke('novatrack-proxy', {
+    body: { action, params },
+  });
+
+  if (error) throw new Error(error.message || 'Proxy call failed');
+  return data;
+}
 
 // ─── Auth helpers ────────────────────────────────────────
 
@@ -42,14 +51,8 @@ export async function updatePassword(password: string) {
 // ─── Backend Guard ───────────────────────────────────────
 
 export async function checkHandshake(): Promise<{ appSlug: string | null }> {
-  const { data, error } = await (supabase as any)
-    .from('app_handshake')
-    .select('app_slug')
-    .eq('id', 3)
-    .single();
-
-  if (error) throw new Error('Unable to verify backend connection.');
-  return { appSlug: data?.app_slug ?? null };
+  const result = await callNovaTrackProxy('check_handshake');
+  return { appSlug: result?.app_slug ?? null };
 }
 
 // ─── App Access Gating ──────────────────────────────────
@@ -60,29 +63,16 @@ export interface AppAccess {
 }
 
 export async function checkAppAccess(): Promise<AppAccess> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { hasAccess: false, role: null };
-
-  // Use the SECURITY DEFINER RPC for access check
-  const { data: hasAccess, error: rpcErr } = await (supabase as any).rpc('has_app_access', {
-    _user_id: user.id,
-    _app_slug: 'behaviordecoded',
-  });
-
-  if (rpcErr || hasAccess !== true) {
-    if (rpcErr) console.warn('[DAL] has_app_access RPC:', rpcErr.message);
+  try {
+    const result = await callNovaTrackProxy('check_app_access');
+    return {
+      hasAccess: result?.hasAccess === true,
+      role: result?.role ?? null,
+    };
+  } catch (err) {
+    console.warn('[DAL] check_app_access proxy error:', err);
     return { hasAccess: false, role: null };
   }
-
-  // Fetch role from user_app_access
-  const { data: accessRow } = await (supabase as any)
-    .from('user_app_access')
-    .select('role')
-    .eq('user_id', user.id)
-    .eq('app_slug', 'behaviordecoded')
-    .maybeSingle();
-
-  return { hasAccess: true, role: accessRow?.role ?? null };
 }
 
 // ─── Diagnostics ─────────────────────────────────────────
@@ -100,54 +90,11 @@ export interface ClientSummary {
   last_name: string;
 }
 
-/** Fetch learners the current user has access to via user_student_access → students. */
+/** Fetch learners the current user has access to via the NovaTrack proxy. */
 export async function getMyClients(): Promise<ClientSummary[]> {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return [];
-
-    // Step 1: get visible student IDs scoped to this app
-    const { data: visRows, error: visErr } = await (supabase as any)
-      .from('student_app_visibility')
-      .select('student_id')
-      .eq('app_slug', 'behaviordecoded');
-
-    if (visErr || !visRows?.length) {
-      if (visErr) console.warn('[DAL] student_app_visibility read:', visErr.message);
-      return [];
-    }
-
-    const visibleStudentIds = new Set(visRows.map((r: any) => r.student_id).filter(Boolean));
-
-    // Step 1b: get student IDs from user_student_access
-    const { data: accessRows, error: accessErr } = await (supabase as any)
-      .from('user_student_access')
-      .select('client_id')
-      .eq('user_id', user.id);
-
-    if (accessErr || !accessRows?.length) {
-      if (accessErr) console.warn('[DAL] user_student_access read:', accessErr.message);
-      return [];
-    }
-
-    // Intersect: only students the user has access to AND are visible in this app
-    const studentIds = accessRows
-      .map((r: any) => r.client_id)
-      .filter((id: string) => id && visibleStudentIds.has(id));
-    if (studentIds.length === 0) return [];
-
-    // Step 2: fetch student details
-    const { data: students, error: studentsErr } = await (supabase as any)
-      .from('students')
-      .select('id, first_name, last_name')
-      .in('id', studentIds);
-
-    if (studentsErr || !students) {
-      console.warn('[DAL] students read:', studentsErr?.message);
-      return [];
-    }
-
-    return (students as ClientSummary[]) || [];
+    const result = await callNovaTrackProxy('get_my_clients');
+    return (result?.clients as ClientSummary[]) || [];
   } catch {
     return [];
   }
@@ -187,7 +134,6 @@ export async function getReplacementBehaviors(): Promise<ReplacementBehavior[]> 
       return SEED_LIBRARY;
     }
 
-    // Map DB columns to our interface (adjust mapping when table is created)
     return (data as any[]).map((row: any) => ({
       id: String(row.id),
       trigger: row.trigger || row.name || '',
