@@ -31,14 +31,16 @@ import { CoachBotFAB } from "./components/CoachBot";
 const queryClient = new QueryClient();
 
 function AppContent() {
-  const { status, errorMessage } = useBackendGuard();
+  const { status, errorMessage, checkAccess } = useBackendGuard();
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [accessChecked, setAccessChecked] = useState(false);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setAuthLoading(false);
+      setAccessChecked(false);
     });
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
@@ -46,6 +48,13 @@ function AppContent() {
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  // Check app access when session is available
+  useEffect(() => {
+    if (session && status === 'valid' && !accessChecked) {
+      checkAccess().then(() => setAccessChecked(true));
+    }
+  }, [session, status, accessChecked]);
 
   if (status === 'loading' || authLoading) {
     return (
@@ -55,7 +64,7 @@ function AppContent() {
     );
   }
 
-  if (status !== 'valid') {
+  if (status !== 'valid' && status !== 'no_access') {
     return <BackendGuardScreen message={errorMessage} />;
   }
 
@@ -68,6 +77,19 @@ function AppContent() {
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     );
+  }
+
+  // Session exists but access check still running
+  if (!accessChecked) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="animate-pulse text-muted-foreground font-display">Verifying access…</div>
+      </div>
+    );
+  }
+
+  if (status === 'no_access') {
+    return <BackendGuardScreen message={errorMessage} />;
   }
 
   return (
