@@ -40,12 +40,18 @@ async function getAuthUserEmail(req: Request): Promise<string | null> {
   return user.email.toLowerCase().trim();
 }
 
-// ─── Nova Core user resolution: email → user_id ─────────
+// ─── Nova Core user resolution: email → user_id (cached) ─
+
+const userIdCache = new Map<string, { id: string; ts: number }>();
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 async function resolveNovaCoreUserId(
   nt: ReturnType<typeof buildNT>,
   email: string
 ): Promise<string | null> {
+  const cached = userIdCache.get(email);
+  if (cached && Date.now() - cached.ts < CACHE_TTL_MS) return cached.id;
+
   // Primary: profiles table
   const { data: profile } = await nt
     .from("profiles")
@@ -53,7 +59,10 @@ async function resolveNovaCoreUserId(
     .eq("email", email)
     .maybeSingle();
 
-  if (profile?.user_id) return profile.user_id;
+  if (profile?.user_id) {
+    userIdCache.set(email, { id: profile.user_id, ts: Date.now() });
+    return profile.user_id;
+  }
 
   // Fallback: user_app_access by email
   const { data: appAccess } = await nt
@@ -64,7 +73,12 @@ async function resolveNovaCoreUserId(
     .limit(1)
     .maybeSingle();
 
-  return appAccess?.user_id ?? null;
+  if (appAccess?.user_id) {
+    userIdCache.set(email, { id: appAccess.user_id, ts: Date.now() });
+    return appAccess.user_id;
+  }
+
+  return null;
 }
 
 // ─── Table access control config ─────────────────────────
@@ -376,6 +390,16 @@ Deno.serve(async (req) => {
           .in("id", studentIds);
 
         return json({ clients: students ?? [] });
+      }
+
+      case "get_my_agencies": {
+        const { data: agencyRows, error: agencyErr } = await nt
+          .from("user_agency_access")
+          .select("agency_id, role")
+          .eq("user_id", novaCoreUserId);
+
+        if (agencyErr || !agencyRows?.length) return json({ agencies: [] });
+        return json({ agencies: agencyRows });
       }
 
       case "query": {
