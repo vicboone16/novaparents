@@ -1,15 +1,9 @@
 /**
- * Weekly Snapshots Data Layer
- * ───────────────────────────
- * Writes to: public.coach_evidence_packets
- * Reads from: public.weekly_snapshots (view)
- * 
- * DB column mapping:
- *   student_id  → learner (view exposes as client_id)
- *   coach_user_id → auth.uid()
+ * Weekly Snapshots Data Layer — via Nova Core through novatrack-proxy.
  */
 
 import { supabase } from '@/integrations/supabase/client';
+import { proxyQuery } from '@/lib/dal';
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -19,8 +13,8 @@ export interface WeeklySnapshot {
   id: string;
   coachUserId: string;
   agencyId?: string | null;
-  studentId?: string | null;   // DB: student_id
-  clientId?: string | null;    // view alias for student_id
+  studentId?: string | null;
+  clientId?: string | null;
   title: string;
   description: string;
   status: SnapshotStatus;
@@ -43,7 +37,6 @@ export interface AgencyLinkInfo {
   role?: string;
 }
 
-// Status display mapping
 const STATUS_DISPLAY: Record<string, { label: string; cls: string }> = {
   draft:          { label: 'Saved',          cls: 'bg-muted text-muted-foreground' },
   submitted:      { label: 'Submitted',      cls: 'bg-warning/10 text-warning' },
@@ -118,14 +111,16 @@ export async function checkAgencyLink(): Promise<AgencyLinkInfo> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { isLinked: false };
 
-    const { data, error } = await (supabase as any)
-      .from('user_agency_access')
-      .select('agency_id, client_id, role')
-      .eq('user_id', user.id)
-      .limit(1)
-      .single();
+    const data = await proxyQuery({
+      table: 'user_agency_access',
+      operation: 'select',
+      select_columns: 'agency_id, client_id, role',
+      eq_filters: [{ col: 'user_id', val: user.id }],
+      limit: 1,
+      maybe_single: true,
+    });
 
-    if (error || !data) return { isLinked: false };
+    if (!data) return { isLinked: false };
 
     return {
       isLinked: true,
@@ -138,36 +133,40 @@ export async function checkAgencyLink(): Promise<AgencyLinkInfo> {
   }
 }
 
-// ─── Get available learners (via user_student_access) ────
+// ─── Get available learners ──────────────────────────────
 
 export async function getMyLearners(): Promise<{ clientId: string; agencyId: string; firstName?: string; lastName?: string }[]> {
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return [];
 
-    const { data: accessRows, error: accessErr } = await (supabase as any)
-      .from('user_student_access')
-      .select('client_id, agency_id')
-      .eq('user_id', user.id);
+    const accessRows = await proxyQuery({
+      table: 'user_student_access',
+      operation: 'select',
+      select_columns: 'student_id, agency_id',
+      eq_filters: [{ col: 'user_id', val: user.id }],
+    });
 
-    if (accessErr || !accessRows?.length) return [];
+    if (!accessRows?.length) return [];
 
-    const studentIds = accessRows.map((r: any) => r.client_id).filter(Boolean);
+    const studentIds = accessRows.map((r: any) => r.student_id).filter(Boolean);
     if (studentIds.length === 0) return [];
 
-    const { data: students } = await (supabase as any)
-      .from('students')
-      .select('id, first_name, last_name')
-      .in('id', studentIds);
+    const students = await proxyQuery({
+      table: 'students',
+      operation: 'select',
+      select_columns: 'id, first_name, last_name',
+      in_filters: [{ col: 'id', vals: studentIds }],
+    });
 
     const studentMap = new Map((students || []).map((s: any) => [s.id, s]));
 
     return accessRows
-      .filter((r: any) => r.client_id)
+      .filter((r: any) => r.student_id)
       .map((r: any) => {
-        const s: any = studentMap.get(r.client_id);
+        const s: any = studentMap.get(r.student_id);
         return {
-          clientId: r.client_id,
+          clientId: r.student_id,
           agencyId: r.agency_id || '',
           firstName: s?.first_name,
           lastName: s?.last_name,
@@ -178,30 +177,25 @@ export async function getMyLearners(): Promise<{ clientId: string; agencyId: str
   }
 }
 
-// ─── READ: Fetch snapshots from weekly_snapshots view ────
+// ─── READ: Fetch snapshots ──────────────────────────────
 
 export async function fetchSnapshots(studentId?: string): Promise<WeeklySnapshot[]> {
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return [];
 
-    let query = (supabase as any)
-      .from('weekly_snapshots')
-      .select('*')
-      .eq('coach_user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(50);
+    const eq_filters: Array<{ col: string; val: unknown }> = [
+      { col: 'coach_user_id', val: user.id },
+    ];
+    if (studentId) eq_filters.push({ col: 'client_id', val: studentId });
 
-    if (studentId) {
-      query = query.eq('client_id', studentId);
-    }
-
-    const { data, error } = await query;
-
-    if (error) {
-      console.warn('[Snapshots] Read from weekly_snapshots failed:', error.message);
-      return [];
-    }
+    const data = await proxyQuery({
+      table: 'weekly_snapshots',
+      operation: 'select',
+      eq_filters,
+      order: [{ col: 'created_at', ascending: false }],
+      limit: 50,
+    });
 
     return (data || []).map(mapViewRow);
   } catch (err: any) {
@@ -233,7 +227,7 @@ function mapViewRow(row: any): WeeklySnapshot {
   };
 }
 
-// ─── WRITE: Insert snapshot into coach_evidence_packets ──
+// ─── WRITE: Insert snapshot ─────────────────────────────
 
 export interface CreateSnapshotInput {
   agencyId?: string | null;
@@ -263,24 +257,15 @@ export async function createSnapshot(input: CreateSnapshotInput): Promise<{ succ
       caregiver_relationship: input.caregiverRelationship || null,
     };
 
-    if (input.agencyId) {
-      row.agency_id = input.agencyId;
-    }
+    if (input.agencyId) row.agency_id = input.agencyId;
+    if (input.status === 'submitted') row.submitted_at = now;
 
-    if (input.status === 'submitted') {
-      row.submitted_at = now;
-    }
-
-    const { data, error } = await (supabase as any)
-      .from('coach_evidence_packets')
-      .insert(row)
-      .select()
-      .single();
-
-    if (error) {
-      console.error('[Snapshots] Insert failed:', error);
-      return { success: false, error: error.message };
-    }
+    const data = await proxyQuery({
+      table: 'coach_evidence_packets',
+      operation: 'insert',
+      data: row,
+      single: true,
+    });
 
     return { success: true, data: mapViewRow(data) };
   } catch (err: any) {
@@ -288,7 +273,7 @@ export async function createSnapshot(input: CreateSnapshotInput): Promise<{ succ
   }
 }
 
-// ─── UPDATE: Update an existing snapshot ─────────────────
+// ─── UPDATE ─────────────────────────────────────────────
 
 export async function updateSnapshot(
   id: string,
@@ -301,20 +286,15 @@ export async function updateSnapshot(
     if (updates.evidenceSummary !== undefined) row.evidence_summary = updates.evidenceSummary;
     if (updates.status !== undefined) {
       row.status = updates.status;
-      if (updates.status === 'submitted') {
-        row.submitted_at = new Date().toISOString();
-      }
+      if (updates.status === 'submitted') row.submitted_at = new Date().toISOString();
     }
 
-    const { error } = await (supabase as any)
-      .from('coach_evidence_packets')
-      .update(row)
-      .eq('id', id);
-
-    if (error) {
-      console.error('[Snapshots] Update failed:', error);
-      return { success: false, error: error.message };
-    }
+    await proxyQuery({
+      table: 'coach_evidence_packets',
+      operation: 'update',
+      eq_filters: [{ col: 'id', val: id }],
+      data: row,
+    });
 
     return { success: true };
   } catch (err: any) {
@@ -322,7 +302,7 @@ export async function updateSnapshot(
   }
 }
 
-// ─── Trend helpers (uses fetched snapshots) ──────────────
+// ─── Trend helpers ───────────────────────────────────────
 
 export interface SnapshotTrends {
   totalSnapshots: number;
@@ -341,39 +321,26 @@ export function computeTrends(snapshots: WeeklySnapshot[]): SnapshotTrends | nul
   };
 }
 
-// ─── Pattern Notes ───────────────────────────────────────
-
 export function generatePatternNotes(snapshots: WeeklySnapshot[]): string[] {
   if (snapshots.length === 0) return [];
   const notes: string[] = [];
 
-  if (snapshots.length >= 3) {
-    notes.push(`You've created ${snapshots.length} snapshots — great consistency!`);
-  }
-
+  if (snapshots.length >= 3) notes.push(`You've created ${snapshots.length} snapshots — great consistency!`);
   const submitted = snapshots.filter(s => s.status === 'submitted' || s.status === 'pending_review');
-  if (submitted.length > 0) {
-    notes.push(`${submitted.length} snapshot(s) submitted for review.`);
-  }
-
+  if (submitted.length > 0) notes.push(`${submitted.length} snapshot(s) submitted for review.`);
   const returned = snapshots.filter(s => s.status === 'returned');
-  if (returned.length > 0) {
-    notes.push(`${returned.length} snapshot(s) returned — check feedback from your support team.`);
-  }
+  if (returned.length > 0) notes.push(`${returned.length} snapshot(s) returned — check feedback from your support team.`);
 
   return notes.slice(0, 2);
 }
 
-// ─── Legacy re-exports for backward compat ───────────────
+// ─── Legacy re-exports ──────────────────────────────────
 
-/** @deprecated Use SnapshotStatus */
 export type SnapshotStatusLocal = SnapshotStatus;
 export function toDisplayStatus(s: string): SnapshotStatus {
   return (s as SnapshotStatus) || 'draft';
 }
 
-/** @deprecated */
 export function getSnapshotsForUser(_userId: string): WeeklySnapshot[] {
-  // Now async — this sync version returns empty; use fetchSnapshots instead
   return [];
 }

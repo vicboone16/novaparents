@@ -1,10 +1,9 @@
 /**
- * Invite Code DAL
- * ───────────────
- * Handles invite code redemption via the redeem_invite_code DB function.
+ * Invite Code DAL — via Nova Core through novatrack-proxy.
  */
 
 import { supabase } from '@/integrations/supabase/client';
+import { proxyQuery } from '@/lib/dal';
 
 export interface RedeemResult {
   success: boolean;
@@ -29,16 +28,18 @@ export async function redeemInviteCode(
 ): Promise<RedeemResult> {
   const normalizedCode = code.trim().toUpperCase();
 
-  const { data, error } = await (supabase as any).rpc('redeem_invite_code', {
-    _code: normalizedCode,
-    _redeemed_from: redeemedFrom,
+  // RPC calls through the proxy
+  const { data, error } = await supabase.functions.invoke('novatrack-proxy', {
+    body: {
+      action: 'rpc',
+      rpc_name: 'redeem_invite_code',
+      rpc_params: { _code: normalizedCode, _redeemed_from: redeemedFrom },
+    },
   });
 
-  if (error) {
-    return { success: false, error: error.message };
-  }
+  if (error) return { success: false, error: error.message };
 
-  const result = data as unknown as RedeemResult;
+  const result = (data?.data ?? data) as unknown as RedeemResult;
   if (!result.success && result.error) {
     if (result.error === 'already_linked' && normalizedCode.startsWith('BD-')) {
       result.error = "You're already linked to this learner.";
@@ -60,13 +61,13 @@ export interface AgencyAccess {
 
 export async function getMyAgencyAccess(): Promise<AgencyAccess[]> {
   try {
-    const { data, error } = await (supabase as any)
-      .from('user_agency_access')
-      .select('id, agency_id, client_id, role, redeemed_at')
-      .order('redeemed_at', { ascending: false });
-
-    if (error || !data) return [];
-    return data as AgencyAccess[];
+    const data = await proxyQuery({
+      table: 'user_agency_access',
+      operation: 'select',
+      select_columns: 'id, agency_id, client_id, role, redeemed_at',
+      order: [{ col: 'redeemed_at', ascending: false }],
+    });
+    return (data as AgencyAccess[]) || [];
   } catch {
     return [];
   }
