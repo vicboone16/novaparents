@@ -4,10 +4,10 @@
  * Bundles lesson completions, quiz scores, reflections, implementation logs,
  * and learner data logs into a single Weekly Snapshot for agency review.
  *
- * Reads/writes to public.weekly_snapshots (canonical table).
+ * All DB operations routed through novatrack-proxy to Nova Core.
  */
 
-import { supabase } from '@/integrations/supabase/client';
+import { proxyQuery } from '@/lib/dal';
 import { getAllEvents, getAllTimings, getAllFlags, computeCoachScore } from '@/lib/engagement';
 import type { EngagementEvent, LessonTimingRecord, IntegrityFlag } from '@/lib/engagement';
 
@@ -102,31 +102,33 @@ export async function submitWeeklySnapshot(userId: string): Promise<WeeklySnapsh
   packet.status = 'pending_review';
   packet.submittedAt = new Date().toISOString();
 
-  const { error } = await (supabase as any)
-    .from('weekly_snapshots')
-    .insert({
-      id: packet.id,
-      user_id: userId,
-      created_at: packet.createdAt,
-      submitted_at: packet.submittedAt,
-      status: packet.status,
-      lessons_completed: packet.lessonsCompleted,
-      quiz_scores: packet.quizScores,
-      reflections_submitted: packet.reflectionsSubmitted,
-      behavior_logs_count: packet.behaviorLogsCount,
-      implementation_logs_count: packet.implementationLogsCount,
-      frequency_logs_count: packet.frequencyLogsCount,
-      duration_logs_count: packet.durationLogsCount,
-      total_active_time_sec: packet.totalActiveTimeSec,
-      pages_visited: packet.pagesVisited,
-      integrity_score: packet.integrityScore,
-      billing_eligible: packet.billingEligible,
-      flags_summary: packet.flagsSummary,
+  try {
+    await proxyQuery({
+      table: 'evidence_packets',
+      operation: 'insert',
+      data: {
+        id: packet.id,
+        user_id: userId,
+        created_at: packet.createdAt,
+        submitted_at: packet.submittedAt,
+        status: packet.status,
+        lessons_completed: packet.lessonsCompleted,
+        quiz_scores: packet.quizScores,
+        reflections_submitted: packet.reflectionsSubmitted,
+        behavior_logs_count: packet.behaviorLogsCount,
+        implementation_logs_count: packet.implementationLogsCount,
+        frequency_logs_count: packet.frequencyLogsCount,
+        duration_logs_count: packet.durationLogsCount,
+        total_active_time_sec: packet.totalActiveTimeSec,
+        pages_visited: packet.pagesVisited,
+        integrity_score: packet.integrityScore,
+        billing_eligible: packet.billingEligible,
+        flags_summary: packet.flagsSummary,
+      },
+      single: true,
     });
-
-  if (error) {
-    console.error('[Snapshot] Failed to persist weekly snapshot:', error.message);
-    // Fall back to localStorage
+  } catch (err: any) {
+    console.error('[Snapshot] Failed to persist weekly snapshot:', err?.message);
     const local = loadLocalPackets();
     local.unshift(packet);
     saveLocalPackets(local);
@@ -139,16 +141,17 @@ export async function submitWeeklySnapshot(userId: string): Promise<WeeklySnapsh
 
 export async function getPackets(userId?: string): Promise<WeeklySnapshot[]> {
   try {
-    let query = (supabase as any).from('weekly_snapshots').select('*').order('created_at', { ascending: false });
-    if (userId) query = query.eq('user_id', userId);
-    
-    const { data, error } = await query;
-    
-    if (error || !data?.length) {
-      // Fall back to localStorage
-      return loadLocalPackets();
-    }
+    const eq_filters: Array<{ col: string; val: unknown }> = [];
+    if (userId) eq_filters.push({ col: 'user_id', val: userId });
 
+    const data = await proxyQuery({
+      table: 'evidence_packets',
+      operation: 'select',
+      eq_filters,
+      order: [{ col: 'created_at', ascending: false }],
+    });
+
+    if (!data?.length) return loadLocalPackets();
     return (data as any[]).map(mapDbToPacket);
   } catch {
     return loadLocalPackets();
@@ -157,13 +160,14 @@ export async function getPackets(userId?: string): Promise<WeeklySnapshot[]> {
 
 export async function getPacketsByStatus(status: PacketStatus): Promise<WeeklySnapshot[]> {
   try {
-    const { data, error } = await (supabase as any)
-      .from('weekly_snapshots')
-      .select('*')
-      .eq('status', status)
-      .order('created_at', { ascending: false });
+    const data = await proxyQuery({
+      table: 'evidence_packets',
+      operation: 'select',
+      eq_filters: [{ col: 'status', val: status }],
+      order: [{ col: 'created_at', ascending: false }],
+    });
 
-    if (error || !data) return [];
+    if (!data) return [];
     return (data as any[]).map(mapDbToPacket);
   } catch {
     return [];
