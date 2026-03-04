@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { BackendGuardScreen } from "@/components/BackendGuardScreen";
+import { UserAccessProvider, useUserAccess } from "@/contexts/UserAccessContext";
 import { useBackendGuard } from "@/hooks/useBackendGuard";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session } from "@supabase/supabase-js";
@@ -32,16 +33,15 @@ import { CoachBotFAB } from "./components/CoachBot";
 const queryClient = new QueryClient();
 
 function AppContent() {
-  const { status, errorMessage, checkAccess } = useBackendGuard();
+  const { status: handshakeStatus, errorMessage: handshakeError } = useBackendGuard();
+  const { status: accessStatus, error: accessError } = useUserAccess();
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [accessChecked, setAccessChecked] = useState(false);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setAuthLoading(false);
-      setAccessChecked(false);
     });
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
@@ -50,14 +50,8 @@ function AppContent() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Check app access when session is available
-  useEffect(() => {
-    if (session && status === 'valid' && !accessChecked) {
-      checkAccess().then(() => setAccessChecked(true));
-    }
-  }, [session, status, accessChecked]);
-
-  if (status === 'loading' || authLoading) {
+  // Handshake loading
+  if (handshakeStatus === 'loading' || authLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="animate-pulse text-muted-foreground font-display">Connecting…</div>
@@ -65,10 +59,12 @@ function AppContent() {
     );
   }
 
-  if (status !== 'valid' && status !== 'no_access') {
-    return <BackendGuardScreen message={errorMessage} />;
+  // Handshake failure
+  if (handshakeStatus !== 'valid') {
+    return <BackendGuardScreen message={handshakeError} />;
   }
 
+  // Not logged in
   if (!session) {
     return (
       <Routes>
@@ -80,8 +76,8 @@ function AppContent() {
     );
   }
 
-  // Session exists but access check still running
-  if (!accessChecked) {
+  // Access loading
+  if (accessStatus === 'loading') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="animate-pulse text-muted-foreground font-display">Verifying access…</div>
@@ -89,8 +85,9 @@ function AppContent() {
     );
   }
 
-  if (status === 'no_access') {
-    return <BackendGuardScreen message={errorMessage} />;
+  // Access denied
+  if (accessStatus === 'no_access' || accessStatus === 'not_provisioned' || accessStatus === 'error') {
+    return <BackendGuardScreen message={accessError || 'Access denied.'} />;
   }
 
   return (
@@ -109,7 +106,6 @@ function AppContent() {
           <Route path="/audit" element={<AuditDashboardPage />} />
           <Route path="/admin/academy" element={<ProtectedRoute><AcademyAdminPage /></ProtectedRoute>} />
           <Route path="/admin/behavior-lab" element={<ProtectedRoute><BehaviorLabAdminPage /></ProtectedRoute>} />
-          {/* Legacy redirects */}
           <Route path="/learn" element={<Navigate to="/toolkit" replace />} />
           <Route path="/library" element={<Navigate to="/toolkit" replace />} />
           <Route path="/login" element={<Navigate to="/" replace />} />
@@ -127,7 +123,9 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <AppContent />
+        <UserAccessProvider>
+          <AppContent />
+        </UserAccessProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

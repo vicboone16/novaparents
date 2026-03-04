@@ -11,8 +11,8 @@ import {
   Package, CheckCircle2, AlertTriangle, Clock, Zap, Brain, User,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { getCurrentUser, getMyClients, type ClientSummary } from '@/lib/dal';
-import { getDisplayName } from '@/lib/profile-dal';
+import { getCurrentUser } from '@/lib/dal';
+import { useUserAccess } from '@/contexts/UserAccessContext';
 import { getLocalLearners, type LocalLearner } from '@/components/IndependentLearnerForm';
 import { Button } from '@/components/ui/button';
 import { fetchSnapshots, getStatusDisplay, type WeeklySnapshot, type SnapshotStatus } from '@/lib/snapshots';
@@ -76,11 +76,11 @@ function getRecentInsight(): string {
 }
 
 export default function Dashboard() {
+  const { data: accessData } = useUserAccess();
   const [userName, setUserName] = useState('');
   const [userId, setUserId] = useState('');
   const [snapshots, setSnapshots] = useState<WeeklySnapshot[]>([]);
   const [submitting, setSubmitting] = useState(false);
-  const [clients, setClients] = useState<ClientSummary[]>([]);
   const [localLearners, setLocalLearners] = useState<LocalLearner[]>([]);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -103,13 +103,19 @@ export default function Dashboard() {
     ? (combinedXp - level.xpNeeded) / (nextLevel.xpNeeded - level.xpNeeded)
     : 1;
 
+  // Derive clients from context
+  const clients = accessData?.students || [];
+
+  useEffect(() => {
+    if (accessData) {
+      setUserName(accessData.displayName || accessData.email?.split('@')[0] || 'there');
+      setUserId(accessData.userId);
+    }
+  }, [accessData]);
+
   useEffect(() => {
     getCurrentUser().then(async (user) => {
       if (user) {
-        const email = user.email || '';
-        const name = await getDisplayName(user.id);
-        setUserName(name || email.split('@')[0] || 'there');
-        setUserId(user.id);
         fetchSnapshots().then(snaps => setSnapshots(snaps));
 
         // Load DB-backed academy progress
@@ -128,7 +134,6 @@ export default function Dashboard() {
           if (hasActivity) {
             const updated = await recordActivity(user.id);
             setStreak(updated);
-            // Check for milestone
             const milestone = getStreakMilestone(updated.currentStreak);
             if (milestone) {
               toast({
@@ -140,7 +145,6 @@ export default function Dashboard() {
         } catch { /* ignore */ }
       }
     });
-    getMyClients().then(setClients);
     setLocalLearners(getLocalLearners());
   }, []);
 

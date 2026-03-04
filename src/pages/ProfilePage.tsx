@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { getCurrentUser, signOut, checkHandshake, getMaskedBackendUrl, getMyClients, type ClientSummary } from '@/lib/dal';
+import { getCurrentUser, signOut, checkHandshake, getMaskedBackendUrl } from '@/lib/dal';
 import { User, Bell, Wrench, LogOut, CheckCircle2, XCircle, Star, Pencil, Ticket, Link2, Copy, Building2, Loader2 } from 'lucide-react';
 import { getMyTrainingProgress, type TrainingProgress } from '@/lib/parent-training-dal';
 import { getMyAttempts } from '@/lib/behavior-lab-dal';
-import { getDisplayName, updateDisplayName } from '@/lib/profile-dal';
+import { updateDisplayName } from '@/lib/profile-dal';
 import { getMyAgencyAccess, type AgencyAccess, redeemInviteCode } from '@/lib/invite-dal';
+import { useUserAccess, type StudentInfo } from '@/contexts/UserAccessContext';
 import { RedeemCodeForm } from '@/components/RedeemCodeForm';
 import { RedeemAgencyInviteCode } from '@/components/agency/RedeemAgencyInviteCode';
 import { IndependentLearnerForm } from '@/components/IndependentLearnerForm';
@@ -16,8 +17,8 @@ import { useNotifications } from '@/hooks/useNotifications';
 import { useToast } from '@/hooks/use-toast';
 
 export default function ProfilePage() {
+  const { data: accessData, refresh: refreshAccess } = useUserAccess();
   const [user, setUser] = useState<any>(null);
-  const [clients, setClients] = useState<ClientSummary[]>([]);
   const [totalXp, setTotalXp] = useState(0);
   const [notifications, setNotifications] = useState(() => localStorage.getItem('bd_notifications') !== 'false');
   const [diagnostics, setDiagnostics] = useState<{
@@ -40,6 +41,9 @@ export default function ProfilePage() {
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  // Derive clients from context
+  const clients = accessData?.students || [];
+
   const GROWTH_LEVELS = [
     { level: 1, name: 'Observer', xp: 0, emoji: '👀' },
     { level: 2, name: 'Behavior Detective', xp: 100, emoji: '🔍' },
@@ -56,6 +60,10 @@ export default function ProfilePage() {
   const { requestPermission } = useNotifications(notifications);
 
   useEffect(() => {
+    if (accessData?.displayName) setDisplayName(accessData.displayName);
+  }, [accessData]);
+
+  useEffect(() => {
     getCurrentUser().then(async (u) => {
       setUser(u);
       if (u) {
@@ -64,11 +72,8 @@ export default function ProfilePage() {
           const labXp = attempts.reduce((s, a) => s + (a.xp_earned || 0), 0);
           setTotalXp(academyXp + labXp);
         });
-        const name = await getDisplayName(u.id);
-        if (name) setDisplayName(name);
       }
     });
-    getMyClients().then(setClients);
     getMyAgencyAccess().then(setAgencyAccess);
   }, []);
 
@@ -239,7 +244,7 @@ export default function ProfilePage() {
             onSuccess={() => {
               setShowRedeem(false);
               getMyAgencyAccess().then(setAgencyAccess);
-              getMyClients().then(setClients);
+              refreshAccess();
               setTimeout(() => navigate('/'), 1500);
             }}
             compact
@@ -306,7 +311,7 @@ export default function ProfilePage() {
                     const result = await redeemInviteCode(learnerCode.trim(), 'settings');
                     if (result.success) {
                       setLearnerCodeSuccess(true);
-                      getMyClients().then(setClients);
+                      refreshAccess();
                       getMyAgencyAccess().then(setAgencyAccess);
                     } else {
                       setLearnerCodeError(result.error || 'Something went wrong.');
@@ -399,7 +404,7 @@ export default function ProfilePage() {
         onOpenChange={setShowAgencyRedeem}
         onRedeemed={() => {
           getMyAgencyAccess().then(setAgencyAccess);
-          getMyClients().then(setClients);
+          refreshAccess();
         }}
       />
 

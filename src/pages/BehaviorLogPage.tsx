@@ -7,7 +7,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { PenLine, Plus, Clock, MapPin, AlertTriangle, Hash, Timer, ClipboardList, Play, Pause, Square, User, Link2 } from 'lucide-react';
-import { getCurrentUser, getMyClients, type ClientSummary } from '@/lib/dal';
+import { getCurrentUser } from '@/lib/dal';
+import { useUserAccess } from '@/contexts/UserAccessContext';
 import { logBehaviorLogCreated, logImplementationLogCreated } from '@/lib/engagement';
 import { getLocalLearners, type LocalLearner } from '@/components/IndependentLearnerForm';
 import { Button } from '@/components/ui/button';
@@ -193,20 +194,23 @@ export default function BehaviorLogPage() {
   const [learners, setLearners] = useState<LearnerOption[]>([]);
   const [selectedLearner, setSelectedLearner] = useState('');
 
+  const { data: accessData } = useUserAccess();
+
   useEffect(() => {
     getCurrentUser().then(u => { if (u) setUserId(u.id); });
-    getMyClients().then(clients => {
-      const linked: LearnerOption[] = clients.map(c => ({
-        id: c.id, name: `${c.first_name} ${c.last_name}`, type: 'linked',
-      }));
-      const local: LearnerOption[] = getLocalLearners().map(l => ({
-        id: l.id, name: `${l.firstName} ${l.lastName}`, type: 'local',
-      }));
-      const all = [...linked, ...local];
-      setLearners(all);
-      if (all.length === 1) setSelectedLearner(all[0].id);
-    });
   }, []);
+
+  useEffect(() => {
+    const linked: LearnerOption[] = (accessData?.students || []).map(c => ({
+      id: c.id, name: `${c.first_name} ${c.last_name}`, type: 'linked' as const,
+    }));
+    const local: LearnerOption[] = getLocalLearners().map(l => ({
+      id: l.id, name: `${l.firstName} ${l.lastName}`, type: 'local' as const,
+    }));
+    const all = [...linked, ...local];
+    setLearners(all);
+    if (all.length === 1) setSelectedLearner(all[0].id);
+  }, [accessData]);
 
   const tabs: { key: LogTab; label: string; icon: React.ElementType }[] = [
     { key: 'abc', label: 'ABC', icon: PenLine },

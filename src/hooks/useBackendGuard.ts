@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
-import { checkHandshake, checkAppAccess } from '@/lib/dal';
+import { checkHandshake } from '@/lib/dal';
 
-type GuardStatus = 'loading' | 'valid' | 'no_access' | 'invalid' | 'error';
+type GuardStatus = 'loading' | 'valid' | 'invalid' | 'error';
 
 export function useBackendGuard() {
   const [status, setStatus] = useState<GuardStatus>('loading');
   const [errorMessage, setErrorMessage] = useState('');
-  const [appRole, setAppRole] = useState<string | null>(null);
 
   useEffect(() => {
     checkHandshake()
@@ -25,15 +24,5 @@ export function useBackendGuard() {
       });
   }, []);
 
-  return { status, errorMessage, appRole, checkAccess };
-
-  async function checkAccess() {
-    const { hasAccess, role } = await checkAppAccess();
-    setAppRole(role);
-    if (!hasAccess) {
-      setErrorMessage('Your account does not have access to Behavior Decoded. Please contact your agency administrator.');
-      setStatus('no_access');
-    }
-    return hasAccess;
-  }
+  return { status, errorMessage };
 }
