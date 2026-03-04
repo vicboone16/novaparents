@@ -392,6 +392,16 @@ Deno.serve(async (req) => {
         return json({ clients: students ?? [] });
       }
 
+      case "get_my_agencies": {
+        const { data: agencyRows, error: agencyErr } = await nt
+          .from("user_agency_access")
+          .select("agency_id, role")
+          .eq("user_id", novaCoreUserId);
+
+        if (agencyErr || !agencyRows?.length) return json({ agencies: [] });
+        return json({ agencies: agencyRows });
+      }
+
       case "query": {
         const params = body.params as CrudParams;
         if (!params?.table || !params?.operation) {
