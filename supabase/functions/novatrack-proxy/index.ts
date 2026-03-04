@@ -341,65 +341,144 @@ Deno.serve(async (req) => {
     }
 
     switch (action) {
-      case "check_app_access": {
-        // Query user_app_access by resolved user_id
-        const { data: accessRows, error: accessErr } = await nt
+      case "check_user_access": {
+        const appSlug = body.app_slug || "behavior_decoded";
+
+        // 1. Get roles
+        const { data: roleRows } = await nt
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", novaCoreUserId);
+        const roles = (roleRows || []).map((r: any) => r.role);
+        const isSuperAdmin = roles.includes("super_admin");
+        const adminUser = await isAdmin(nt, novaCoreUserId);
+
+        // 2. Get app access
+        const { data: accessRows } = await nt
           .from("user_app_access")
           .select("role, agency_id, is_active")
           .eq("user_id", novaCoreUserId)
-          .eq("app_slug", "behavior_decoded")
+          .eq("app_slug", appSlug)
           .eq("is_active", true);
 
-        if (accessErr || !accessRows?.length) {
-          // Fallback: check if super_admin or agency owner (they get implicit access)
-          const admin = await isAdmin(nt, novaCoreUserId);
-          if (admin) {
-            const { data: roleRow } = await nt
-              .from("user_roles")
-              .select("role")
-              .eq("user_id", novaCoreUserId)
-              .limit(1)
-              .maybeSingle();
-            return json({ hasAccess: true, role: roleRow?.role ?? "admin" });
+        const hasAccess = !!(accessRows?.length) || adminUser;
+        const appRole = accessRows?.[0]?.role ?? (adminUser ? roles[0] : null);
+
+        // 3. Get agencies
+        const { data: agencyAccess } = await nt
+          .from("user_agency_access")
+          .select("agency_id, role")
+          .eq("user_id", novaCoreUserId);
+        const agencies = agencyAccess || [];
+
+        // 4. Get display name from Nova Core profile
+        const { data: profileRow } = await nt
+          .from("profiles")
+          .select("display_name, email")
+          .eq("user_id", novaCoreUserId)
+          .maybeSingle();
+
+        // 5. Get visible students
+        const slugAliases: Record<string, string> = {
+          behaviordecoded: "behavior_decoded",
+          behavior_decoded: "behavior_decoded",
+        };
+        const resolvedSlug = slugAliases[appSlug] || appSlug;
+
+        let visibleStudentIds: string[] = [];
+        if (isSuperAdmin || adminUser) {
+          const { data: visRows } = await nt
+            .from("student_app_visibility")
+            .select("student_id")
+            .eq("app_slug", resolvedSlug)
+            .eq("is_active", true);
+          visibleStudentIds = (visRows || []).map((r: any) => r.student_id);
+        } else {
+          const [visRes, accessRes] = await Promise.all([
+            nt.from("student_app_visibility").select("student_id")
+              .eq("app_slug", resolvedSlug).eq("is_active", true),
+            nt.from("user_student_access").select("student_id")
+              .eq("user_id", novaCoreUserId).eq("app_scope", resolvedSlug),
+          ]);
+          const visSet = new Set((visRes.data || []).map((r: any) => r.student_id));
+          const accessIds = (accessRes.data || []).map((r: any) => r.student_id);
+          visibleStudentIds = accessIds.filter((id: string) => visSet.has(id));
+          if (visibleStudentIds.length === 0 && agencies.length > 0) {
+            visibleStudentIds = Array.from(visSet);
           }
-          return json({ hasAccess: false, role: null });
         }
 
-        // Return first matching access row's role
+        // 6. Fetch student details
+        let students: any[] = [];
+        if (visibleStudentIds.length > 0) {
+          const { data: studentRows } = await nt
+            .from("students")
+            .select("id, first_name, last_name")
+            .in("id", visibleStudentIds);
+          students = studentRows || [];
+        }
+
         return json({
-          hasAccess: true,
-          role: accessRows[0]?.role ?? null,
+          user_id: novaCoreUserId,
+          email: profileRow?.email || email,
+          display_name: profileRow?.display_name || null,
+          roles,
+          is_super_admin: isSuperAdmin,
+          is_admin: adminUser,
+          has_access: hasAccess,
+          app_role: appRole,
+          agencies,
+          students,
+          visible_student_ids: visibleStudentIds,
+          app_slug: resolvedSlug,
         });
       }
 
+      // Legacy aliases — redirect to unified check_user_access
+      case "check_app_access": {
+        const result = await (await Deno.serve).toString; // dummy — handled below
+        // Re-invoke unified handler
+        const appSlug = "behavior_decoded";
+        const { data: accessRows } = await nt
+          .from("user_app_access")
+          .select("role, agency_id, is_active")
+          .eq("user_id", novaCoreUserId)
+          .eq("app_slug", appSlug)
+          .eq("is_active", true);
+        if (accessRows?.length) {
+          return json({ hasAccess: true, role: accessRows[0]?.role ?? null });
+        }
+        const admin = await isAdmin(nt, novaCoreUserId);
+        if (admin) {
+          const { data: roleRow } = await nt
+            .from("user_roles").select("role")
+            .eq("user_id", novaCoreUserId).limit(1).maybeSingle();
+          return json({ hasAccess: true, role: roleRow?.role ?? "admin" });
+        }
+        return json({ hasAccess: false, role: null });
+      }
+
       case "get_my_clients": {
-        const { data: accessRows, error: accessErr } = await nt
+        const { data: accessRows } = await nt
           .from("user_student_access")
           .select("student_id")
           .eq("user_id", novaCoreUserId)
           .eq("app_scope", "behavior_decoded");
-
-        if (accessErr || !accessRows?.length) return json({ clients: [] });
-
+        if (!accessRows?.length) return json({ clients: [] });
         const studentIds = accessRows.map((r: any) => r.student_id).filter(Boolean);
         if (studentIds.length === 0) return json({ clients: [] });
-
         const { data: students } = await nt
-          .from("students")
-          .select("id, first_name, last_name")
+          .from("students").select("id, first_name, last_name")
           .in("id", studentIds);
-
         return json({ clients: students ?? [] });
       }
 
       case "get_my_agencies": {
-        const { data: agencyRows, error: agencyErr } = await nt
+        const { data: agencyRows } = await nt
           .from("user_agency_access")
           .select("agency_id, role")
           .eq("user_id", novaCoreUserId);
-
-        if (agencyErr || !agencyRows?.length) return json({ agencies: [] });
-        return json({ agencies: agencyRows });
+        return json({ agencies: agencyRows || [] });
       }
 
       case "query": {
