@@ -17,8 +17,8 @@ import { useNotifications } from '@/hooks/useNotifications';
 import { useToast } from '@/hooks/use-toast';
 
 export default function ProfilePage() {
+  const { data: accessData, refresh: refreshAccess } = useUserAccess();
   const [user, setUser] = useState<any>(null);
-  const [clients, setClients] = useState<ClientSummary[]>([]);
   const [totalXp, setTotalXp] = useState(0);
   const [notifications, setNotifications] = useState(() => localStorage.getItem('bd_notifications') !== 'false');
   const [diagnostics, setDiagnostics] = useState<{
@@ -41,6 +41,9 @@ export default function ProfilePage() {
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  // Derive clients from context
+  const clients = accessData?.students || [];
+
   const GROWTH_LEVELS = [
     { level: 1, name: 'Observer', xp: 0, emoji: '👀' },
     { level: 2, name: 'Behavior Detective', xp: 100, emoji: '🔍' },
@@ -57,6 +60,10 @@ export default function ProfilePage() {
   const { requestPermission } = useNotifications(notifications);
 
   useEffect(() => {
+    if (accessData?.displayName) setDisplayName(accessData.displayName);
+  }, [accessData]);
+
+  useEffect(() => {
     getCurrentUser().then(async (u) => {
       setUser(u);
       if (u) {
@@ -65,11 +72,8 @@ export default function ProfilePage() {
           const labXp = attempts.reduce((s, a) => s + (a.xp_earned || 0), 0);
           setTotalXp(academyXp + labXp);
         });
-        const name = await getDisplayName(u.id);
-        if (name) setDisplayName(name);
       }
     });
-    getMyClients().then(setClients);
     getMyAgencyAccess().then(setAgencyAccess);
   }, []);
 
