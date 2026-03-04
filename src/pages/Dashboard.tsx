@@ -76,11 +76,11 @@ function getRecentInsight(): string {
 }
 
 export default function Dashboard() {
+  const { data: accessData } = useUserAccess();
   const [userName, setUserName] = useState('');
   const [userId, setUserId] = useState('');
   const [snapshots, setSnapshots] = useState<WeeklySnapshot[]>([]);
   const [submitting, setSubmitting] = useState(false);
-  const [clients, setClients] = useState<ClientSummary[]>([]);
   const [localLearners, setLocalLearners] = useState<LocalLearner[]>([]);
   const navigate = useNavigate();
   const { toast } = useToast();
