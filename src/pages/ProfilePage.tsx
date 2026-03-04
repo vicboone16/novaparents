@@ -311,7 +311,7 @@ export default function ProfilePage() {
                     const result = await redeemInviteCode(learnerCode.trim(), 'settings');
                     if (result.success) {
                       setLearnerCodeSuccess(true);
-                      getMyClients().then(setClients);
+                      refreshAccess();
                       getMyAgencyAccess().then(setAgencyAccess);
                     } else {
                       setLearnerCodeError(result.error || 'Something went wrong.');
