@@ -436,7 +436,6 @@ Deno.serve(async (req) => {
 
       // Legacy aliases — redirect to unified check_user_access
       case "check_app_access": {
-        const result = await (await Deno.serve).toString; // dummy — handled below
         // Re-invoke unified handler
         const appSlug = "behavior_decoded";
         const { data: accessRows } = await nt
