@@ -11,8 +11,8 @@ import {
   Package, CheckCircle2, AlertTriangle, Clock, Zap, Brain, User,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { getCurrentUser, getMyClients, type ClientSummary } from '@/lib/dal';
-import { getDisplayName } from '@/lib/profile-dal';
+import { getCurrentUser } from '@/lib/dal';
+import { useUserAccess } from '@/contexts/UserAccessContext';
 import { getLocalLearners, type LocalLearner } from '@/components/IndependentLearnerForm';
 import { Button } from '@/components/ui/button';
 import { fetchSnapshots, getStatusDisplay, type WeeklySnapshot, type SnapshotStatus } from '@/lib/snapshots';
