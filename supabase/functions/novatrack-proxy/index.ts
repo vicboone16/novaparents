@@ -337,6 +337,11 @@ Deno.serve(async (req) => {
     // Resolve Nova Core user_id from email
     const novaCoreUserId = await resolveNovaCoreUserId(nt, email);
     if (!novaCoreUserId) {
+      // Return 200 so the client can read the structured error
+      // (supabase.functions.invoke throws on non-2xx, hiding the body)
+      if (action === "check_user_access") {
+        return json({ error: "user_not_provisioned", detail: "No Nova Core profile found for this email" });
+      }
       return json({ error: "user_not_provisioned", detail: "No Nova Core profile found for this email" }, 403);
     }
 
