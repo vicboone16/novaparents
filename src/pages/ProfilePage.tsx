@@ -404,7 +404,7 @@ export default function ProfilePage() {
         onOpenChange={setShowAgencyRedeem}
         onRedeemed={() => {
           getMyAgencyAccess().then(setAgencyAccess);
-          getMyClients().then(setClients);
+          refreshAccess();
         }}
       />
 
