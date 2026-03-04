@@ -1,8 +1,9 @@
 /**
  * Academy DAL — CRUD for academy_modules, versions, paths, assignments, rules, progress
+ * All operations routed through novatrack-proxy to Nova Core.
  */
 
-import { supabase } from '@/integrations/supabase/client';
+import { proxyQuery } from '@/lib/dal';
 
 // ─── Types ───────────────────────────────────────────
 
@@ -109,143 +110,262 @@ export interface ModuleProgress {
 // ─── Modules ─────────────────────────────────────────────
 
 export async function getModules(filters?: { scope?: string; status?: string }): Promise<AcademyModule[]> {
-  let query = (supabase as any).from('academy_modules').select('*').order('updated_at', { ascending: false });
-  if (filters?.scope) query = query.eq('scope', filters.scope);
-  if (filters?.status) query = query.eq('status', filters.status);
-  const { data, error } = await query;
-  if (error) { console.error('[Academy DAL] getModules:', error); return []; }
-  return data || [];
+  try {
+    const eq_filters: Array<{ col: string; val: unknown }> = [];
+    if (filters?.scope) eq_filters.push({ col: 'scope', val: filters.scope });
+    if (filters?.status) eq_filters.push({ col: 'status', val: filters.status });
+
+    const data = await proxyQuery({
+      table: 'academy_modules',
+      operation: 'select',
+      eq_filters,
+      order: [{ col: 'updated_at', ascending: false }],
+    });
+    return data || [];
+  } catch (err) { console.error('[Academy DAL] getModules:', err); return []; }
 }
 
 export async function createModule(mod: Partial<AcademyModule>): Promise<AcademyModule | null> {
-  const { data, error } = await (supabase as any).from('academy_modules').insert(mod).select().single();
-  if (error) { console.error('[Academy DAL] createModule:', error); return null; }
-  return data;
+  try {
+    const data = await proxyQuery({
+      table: 'academy_modules',
+      operation: 'insert',
+      data: mod as Record<string, unknown>,
+      single: true,
+    });
+    return data;
+  } catch (err) { console.error('[Academy DAL] createModule:', err); return null; }
 }
 
 export async function updateModule(id: string, updates: Partial<AcademyModule>): Promise<AcademyModule | null> {
-  const { data, error } = await (supabase as any).from('academy_modules').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', id).select().single();
-  if (error) { console.error('[Academy DAL] updateModule:', error); return null; }
-  return data;
+  try {
+    const data = await proxyQuery({
+      table: 'academy_modules',
+      operation: 'update',
+      eq_filters: [{ col: 'id', val: id }],
+      data: { ...updates, updated_at: new Date().toISOString() },
+    });
+    return data?.[0] || null;
+  } catch (err) { console.error('[Academy DAL] updateModule:', err); return null; }
 }
 
 // ─── Versions ────────────────────────────────────────────
 
 export async function getVersions(moduleId: string): Promise<ModuleVersion[]> {
-  const { data, error } = await (supabase as any).from('academy_module_versions').select('*').eq('module_id', moduleId).order('version_num', { ascending: false });
-  if (error) { console.error('[Academy DAL] getVersions:', error); return []; }
-  return data || [];
+  try {
+    const data = await proxyQuery({
+      table: 'academy_module_versions',
+      operation: 'select',
+      eq_filters: [{ col: 'module_id', val: moduleId }],
+      order: [{ col: 'version_num', ascending: false }],
+    });
+    return data || [];
+  } catch (err) { console.error('[Academy DAL] getVersions:', err); return []; }
 }
 
 export async function createVersion(v: Partial<ModuleVersion>): Promise<ModuleVersion | null> {
-  const { data, error } = await (supabase as any).from('academy_module_versions').insert(v).select().single();
-  if (error) { console.error('[Academy DAL] createVersion:', error); return null; }
-  return data;
+  try {
+    const data = await proxyQuery({
+      table: 'academy_module_versions',
+      operation: 'insert',
+      data: v as Record<string, unknown>,
+      single: true,
+    });
+    return data;
+  } catch (err) { console.error('[Academy DAL] createVersion:', err); return null; }
 }
 
 export async function updateVersion(id: string, updates: Partial<ModuleVersion>): Promise<ModuleVersion | null> {
-  const { data, error } = await (supabase as any).from('academy_module_versions').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', id).select().single();
-  if (error) { console.error('[Academy DAL] updateVersion:', error); return null; }
-  return data;
+  try {
+    const data = await proxyQuery({
+      table: 'academy_module_versions',
+      operation: 'update',
+      eq_filters: [{ col: 'id', val: id }],
+      data: { ...updates, updated_at: new Date().toISOString() },
+    });
+    return data?.[0] || null;
+  } catch (err) { console.error('[Academy DAL] updateVersion:', err); return null; }
 }
 
 // ─── Paths ───────────────────────────────────────────────
 
 export async function getPaths(): Promise<AcademyPath[]> {
-  const { data, error } = await (supabase as any).from('academy_paths').select('*').order('updated_at', { ascending: false });
-  if (error) { console.error('[Academy DAL] getPaths:', error); return []; }
-  return data || [];
+  try {
+    const data = await proxyQuery({
+      table: 'academy_paths',
+      operation: 'select',
+      order: [{ col: 'updated_at', ascending: false }],
+    });
+    return data || [];
+  } catch (err) { console.error('[Academy DAL] getPaths:', err); return []; }
 }
 
 export async function createPath(p: Partial<AcademyPath>): Promise<AcademyPath | null> {
-  const { data, error } = await (supabase as any).from('academy_paths').insert(p).select().single();
-  if (error) { console.error('[Academy DAL] createPath:', error); return null; }
-  return data;
+  try {
+    const data = await proxyQuery({
+      table: 'academy_paths',
+      operation: 'insert',
+      data: p as Record<string, unknown>,
+      single: true,
+    });
+    return data;
+  } catch (err) { console.error('[Academy DAL] createPath:', err); return null; }
 }
 
 export async function updatePath(id: string, updates: Partial<AcademyPath>): Promise<AcademyPath | null> {
-  const { data, error } = await (supabase as any).from('academy_paths').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', id).select().single();
-  if (error) { console.error('[Academy DAL] updatePath:', error); return null; }
-  return data;
+  try {
+    const data = await proxyQuery({
+      table: 'academy_paths',
+      operation: 'update',
+      eq_filters: [{ col: 'id', val: id }],
+      data: { ...updates, updated_at: new Date().toISOString() },
+    });
+    return data?.[0] || null;
+  } catch (err) { console.error('[Academy DAL] updatePath:', err); return null; }
 }
 
 export async function getPathModules(pathId: string): Promise<PathModule[]> {
-  const { data, error } = await (supabase as any).from('academy_path_modules').select('*').eq('path_id', pathId).order('sort_order');
-  if (error) { console.error('[Academy DAL] getPathModules:', error); return []; }
-  return data || [];
+  try {
+    const data = await proxyQuery({
+      table: 'academy_path_modules',
+      operation: 'select',
+      eq_filters: [{ col: 'path_id', val: pathId }],
+      order: [{ col: 'sort_order', ascending: true }],
+    });
+    return data || [];
+  } catch (err) { console.error('[Academy DAL] getPathModules:', err); return []; }
 }
 
 export async function setPathModules(pathId: string, modules: Partial<PathModule>[]): Promise<boolean> {
-  await (supabase as any).from('academy_path_modules').delete().eq('path_id', pathId);
-  if (modules.length === 0) return true;
-  const rows = modules.map((m, i) => ({ ...m, path_id: pathId, sort_order: i }));
-  const { error } = await (supabase as any).from('academy_path_modules').insert(rows);
-  if (error) { console.error('[Academy DAL] setPathModules:', error); return false; }
-  return true;
+  try {
+    await proxyQuery({
+      table: 'academy_path_modules',
+      operation: 'delete',
+      eq_filters: [{ col: 'path_id', val: pathId }],
+    });
+    if (modules.length === 0) return true;
+    const rows = modules.map((m, i) => ({ ...m, path_id: pathId, sort_order: i }));
+    await proxyQuery({
+      table: 'academy_path_modules',
+      operation: 'insert',
+      data: rows as Record<string, unknown>[],
+    });
+    return true;
+  } catch (err) { console.error('[Academy DAL] setPathModules:', err); return false; }
 }
 
 // ─── Assignments ─────────────────────────────────────────
 
 export async function getAssignments(filters?: { coach_user_id?: string; status?: string }): Promise<ModuleAssignment[]> {
-  let query = (supabase as any).from('academy_module_assignments').select('*').order('created_at', { ascending: false });
-  if (filters?.coach_user_id) query = query.eq('coach_user_id', filters.coach_user_id);
-  if (filters?.status) query = query.eq('status', filters.status);
-  const { data, error } = await query;
-  if (error) { console.error('[Academy DAL] getAssignments:', error); return []; }
-  return data || [];
+  try {
+    const eq_filters: Array<{ col: string; val: unknown }> = [];
+    if (filters?.coach_user_id) eq_filters.push({ col: 'coach_user_id', val: filters.coach_user_id });
+    if (filters?.status) eq_filters.push({ col: 'status', val: filters.status });
+
+    const data = await proxyQuery({
+      table: 'academy_module_assignments',
+      operation: 'select',
+      eq_filters,
+      order: [{ col: 'created_at', ascending: false }],
+    });
+    return data || [];
+  } catch (err) { console.error('[Academy DAL] getAssignments:', err); return []; }
 }
 
 export async function createAssignment(a: Partial<ModuleAssignment>): Promise<ModuleAssignment | null> {
-  const { data, error } = await (supabase as any).from('academy_module_assignments').insert(a).select().single();
-  if (error) { console.error('[Academy DAL] createAssignment:', error); return null; }
-  return data;
+  try {
+    const data = await proxyQuery({
+      table: 'academy_module_assignments',
+      operation: 'insert',
+      data: a as Record<string, unknown>,
+      single: true,
+    });
+    return data;
+  } catch (err) { console.error('[Academy DAL] createAssignment:', err); return null; }
 }
 
 export async function updateAssignment(id: string, updates: Partial<ModuleAssignment>): Promise<ModuleAssignment | null> {
-  const { data, error } = await (supabase as any).from('academy_module_assignments').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', id).select().single();
-  if (error) { console.error('[Academy DAL] updateAssignment:', error); return null; }
-  return data;
+  try {
+    const data = await proxyQuery({
+      table: 'academy_module_assignments',
+      operation: 'update',
+      eq_filters: [{ col: 'id', val: id }],
+      data: { ...updates, updated_at: new Date().toISOString() },
+    });
+    return data?.[0] || null;
+  } catch (err) { console.error('[Academy DAL] updateAssignment:', err); return null; }
 }
 
 // ─── Rules ───────────────────────────────────────────────
 
 export async function getRules(): Promise<ModuleRule[]> {
-  const { data, error } = await (supabase as any).from('academy_module_rules').select('*').order('created_at', { ascending: false });
-  if (error) { console.error('[Academy DAL] getRules:', error); return []; }
-  return data || [];
+  try {
+    const data = await proxyQuery({
+      table: 'academy_module_rules',
+      operation: 'select',
+      order: [{ col: 'created_at', ascending: false }],
+    });
+    return data || [];
+  } catch (err) { console.error('[Academy DAL] getRules:', err); return []; }
 }
 
 export async function createRule(r: Partial<ModuleRule>): Promise<ModuleRule | null> {
-  const { data, error } = await (supabase as any).from('academy_module_rules').insert(r).select().single();
-  if (error) { console.error('[Academy DAL] createRule:', error); return null; }
-  return data;
+  try {
+    const data = await proxyQuery({
+      table: 'academy_module_rules',
+      operation: 'insert',
+      data: r as Record<string, unknown>,
+      single: true,
+    });
+    return data;
+  } catch (err) { console.error('[Academy DAL] createRule:', err); return null; }
 }
 
 export async function updateRule(id: string, updates: Partial<ModuleRule>): Promise<ModuleRule | null> {
-  const { data, error } = await (supabase as any).from('academy_module_rules').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', id).select().single();
-  if (error) { console.error('[Academy DAL] updateRule:', error); return null; }
-  return data;
+  try {
+    const data = await proxyQuery({
+      table: 'academy_module_rules',
+      operation: 'update',
+      eq_filters: [{ col: 'id', val: id }],
+      data: { ...updates, updated_at: new Date().toISOString() },
+    });
+    return data?.[0] || null;
+  } catch (err) { console.error('[Academy DAL] updateRule:', err); return null; }
 }
 
 export async function deleteRule(id: string): Promise<boolean> {
-  const { error } = await (supabase as any).from('academy_module_rules').delete().eq('id', id);
-  if (error) { console.error('[Academy DAL] deleteRule:', error); return false; }
-  return true;
+  try {
+    await proxyQuery({
+      table: 'academy_module_rules',
+      operation: 'delete',
+      eq_filters: [{ col: 'id', val: id }],
+    });
+    return true;
+  } catch (err) { console.error('[Academy DAL] deleteRule:', err); return false; }
 }
 
 // ─── Progress ────────────────────────────────────────────
 
 export async function getMyProgress(userId: string): Promise<ModuleProgress[]> {
-  const { data, error } = await (supabase as any).from('academy_module_progress').select('*').eq('user_id', userId);
-  if (error) { console.error('[Academy DAL] getMyProgress:', error); return []; }
-  return data || [];
+  try {
+    const data = await proxyQuery({
+      table: 'academy_module_progress',
+      operation: 'select',
+      eq_filters: [{ col: 'user_id', val: userId }],
+    });
+    return data || [];
+  } catch (err) { console.error('[Academy DAL] getMyProgress:', err); return []; }
 }
 
 export async function upsertProgress(p: Partial<ModuleProgress>): Promise<ModuleProgress | null> {
-  const { data, error } = await (supabase as any).from('academy_module_progress').upsert(
-    { ...p, updated_at: new Date().toISOString() },
-    { onConflict: 'user_id,module_id' }
-  ).select().single();
-  if (error) { console.error('[Academy DAL] upsertProgress:', error); return null; }
-  return data;
+  try {
+    const data = await proxyQuery({
+      table: 'academy_module_progress',
+      operation: 'upsert',
+      data: { ...p, updated_at: new Date().toISOString() } as Record<string, unknown>,
+      on_conflict: 'user_id,module_id',
+      single: true,
+    });
+    return data;
+  } catch (err) { console.error('[Academy DAL] upsertProgress:', err); return null; }
 }

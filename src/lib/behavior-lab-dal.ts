@@ -1,8 +1,9 @@
 /**
  * Behavior Lab DAL — CRUD for games + attempts
+ * All operations routed through novatrack-proxy to Nova Core.
  */
 
-import { supabase } from '@/integrations/supabase/client';
+import { proxyQuery } from '@/lib/dal';
 
 export interface LabGame {
   id: string;
@@ -38,36 +39,67 @@ export interface LabAttempt {
 // ─── Games ───────────────────────────────────────────────
 
 export async function getGames(filters?: { status?: string; scope?: string }): Promise<LabGame[]> {
-  let query = (supabase as any).from('behavior_lab_games').select('*').order('stage').order('title');
-  if (filters?.status) query = query.eq('status', filters.status);
-  if (filters?.scope) query = query.eq('scope', filters.scope);
-  const { data, error } = await query;
-  if (error) { console.error('[Lab DAL] getGames:', error); return []; }
-  return data || [];
+  try {
+    const eq_filters: Array<{ col: string; val: unknown }> = [];
+    if (filters?.status) eq_filters.push({ col: 'status', val: filters.status });
+    if (filters?.scope) eq_filters.push({ col: 'scope', val: filters.scope });
+
+    const data = await proxyQuery({
+      table: 'behavior_lab_games',
+      operation: 'select',
+      eq_filters,
+      order: [{ col: 'stage', ascending: true }, { col: 'title', ascending: true }],
+    });
+    return data || [];
+  } catch (err) { console.error('[Lab DAL] getGames:', err); return []; }
 }
 
 export async function createGame(g: Partial<LabGame>): Promise<LabGame | null> {
-  const { data, error } = await (supabase as any).from('behavior_lab_games').insert(g).select().single();
-  if (error) { console.error('[Lab DAL] createGame:', error); return null; }
-  return data;
+  try {
+    const data = await proxyQuery({
+      table: 'behavior_lab_games',
+      operation: 'insert',
+      data: g as Record<string, unknown>,
+      single: true,
+    });
+    return data;
+  } catch (err) { console.error('[Lab DAL] createGame:', err); return null; }
 }
 
 export async function updateGame(id: string, updates: Partial<LabGame>): Promise<LabGame | null> {
-  const { data, error } = await (supabase as any).from('behavior_lab_games').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', id).select().single();
-  if (error) { console.error('[Lab DAL] updateGame:', error); return null; }
-  return data;
+  try {
+    const data = await proxyQuery({
+      table: 'behavior_lab_games',
+      operation: 'update',
+      eq_filters: [{ col: 'id', val: id }],
+      data: { ...updates, updated_at: new Date().toISOString() },
+    });
+    return data?.[0] || null;
+  } catch (err) { console.error('[Lab DAL] updateGame:', err); return null; }
 }
 
 // ─── Attempts ────────────────────────────────────────────
 
 export async function getMyAttempts(userId: string): Promise<LabAttempt[]> {
-  const { data, error } = await (supabase as any).from('behavior_lab_attempts').select('*').eq('user_id', userId).order('created_at', { ascending: false });
-  if (error) { console.error('[Lab DAL] getMyAttempts:', error); return []; }
-  return data || [];
+  try {
+    const data = await proxyQuery({
+      table: 'behavior_lab_attempts',
+      operation: 'select',
+      eq_filters: [{ col: 'user_id', val: userId }],
+      order: [{ col: 'created_at', ascending: false }],
+    });
+    return data || [];
+  } catch (err) { console.error('[Lab DAL] getMyAttempts:', err); return []; }
 }
 
 export async function saveAttempt(a: Partial<LabAttempt>): Promise<LabAttempt | null> {
-  const { data, error } = await (supabase as any).from('behavior_lab_attempts').insert(a).select().single();
-  if (error) { console.error('[Lab DAL] saveAttempt:', error); return null; }
-  return data;
+  try {
+    const data = await proxyQuery({
+      table: 'behavior_lab_attempts',
+      operation: 'insert',
+      data: a as Record<string, unknown>,
+      single: true,
+    });
+    return data;
+  } catch (err) { console.error('[Lab DAL] saveAttempt:', err); return null; }
 }

@@ -1,9 +1,7 @@
 /**
  * Data Access Layer (DAL)
  * ──────────────────────
- * All reads/writes to the backend flow through this module.
- * Uses an edge function proxy to access the shared NovaTrack backend
- * for cross-app tables (handshake, access gating, students).
+ * All reads/writes to the Nova Core backend flow through the novatrack-proxy edge function.
  *
  * Rules:
  *  - Only access parent-safe surfaces.
@@ -12,15 +10,51 @@
 
 import { supabase } from '@/integrations/supabase/client';
 
-// ─── NovaTrack Proxy helper ─────────────────────────────
+// ─── NovaTrack Proxy helpers ────────────────────────────
 
-async function callNovaTrackProxy(action: string, params?: Record<string, unknown>) {
+export async function callNovaTrackProxy(action: string, params?: Record<string, unknown>) {
   const { data, error } = await supabase.functions.invoke('novatrack-proxy', {
     body: { action, params },
   });
 
   if (error) throw new Error(error.message || 'Proxy call failed');
   return data;
+}
+
+/**
+ * Generic CRUD helper — routes through the proxy's "query" action.
+ * Returns the `data` field from the proxy response.
+ */
+export async function proxyQuery(params: {
+  table: string;
+  operation: 'select' | 'insert' | 'update' | 'upsert' | 'delete';
+  eq_filters?: Array<{ col: string; val: unknown }>;
+  in_filters?: Array<{ col: string; vals: unknown[] }>;
+  data?: Record<string, unknown> | Record<string, unknown>[];
+  order?: Array<{ col: string; ascending?: boolean }>;
+  limit?: number;
+  single?: boolean;
+  maybe_single?: boolean;
+  on_conflict?: string;
+  select_columns?: string;
+}): Promise<any> {
+  const result = await callNovaTrackProxy('query', params);
+  if (result?.error) throw new Error(result.error);
+  return result?.data ?? result;
+}
+
+/**
+ * RPC helper — routes through the proxy's "rpc" action.
+ */
+export async function proxyRpc(rpcName: string, rpcParams?: Record<string, unknown>): Promise<any> {
+  const result = await callNovaTrackProxy('rpc', undefined);
+  // Re-invoke with correct body shape
+  const { data, error } = await supabase.functions.invoke('novatrack-proxy', {
+    body: { action: 'rpc', rpc_name: rpcName, rpc_params: rpcParams || {} },
+  });
+  if (error) throw new Error(error.message || 'RPC call failed');
+  if (data?.error) throw new Error(data.error);
+  return data?.data ?? data;
 }
 
 // ─── Auth helpers ────────────────────────────────────────
@@ -90,7 +124,6 @@ export interface ClientSummary {
   last_name: string;
 }
 
-/** Fetch learners the current user has access to via the NovaTrack proxy. */
 export async function getMyClients(): Promise<ClientSummary[]> {
   try {
     const result = await callNovaTrackProxy('get_my_clients');
@@ -116,20 +149,16 @@ export interface ReplacementBehavior {
   generalization: string;
 }
 
-/** Seed data — expanded library covering all 4 functions × 3 age bands × 3 settings */
 import { SEED_LIBRARY } from './dal-seed-library';
 
-/**
- * Fetch replacement behaviors.
- * Tries parent_safe_replacement_behaviors first, falls back to seed data.
- */
 export async function getReplacementBehaviors(): Promise<ReplacementBehavior[]> {
   try {
-    const { data, error } = await (supabase as any)
-      .from('parent_safe_replacement_behaviors')
-      .select('*');
+    const data = await proxyQuery({
+      table: 'parent_safe_replacement_behaviors',
+      operation: 'select',
+    });
 
-    if (error || !data?.length) {
+    if (!data?.length) {
       console.info('[DAL] No DB library found, using seed data.');
       return SEED_LIBRARY;
     }

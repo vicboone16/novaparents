@@ -1,10 +1,11 @@
 /**
- * useUserRole — Server-side role check via user_roles table.
- * Supports: super_admin, agency_admin, supervisor, coach
+ * useUserRole — Server-side role check via Nova Core user_roles table.
+ * Routes through novatrack-proxy.
  */
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { proxyQuery } from '@/lib/dal';
 
 export type AppRole = 'super_admin' | 'agency_admin' | 'supervisor' | 'coach';
 
@@ -17,16 +18,22 @@ export function useUserRole() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setLoading(false); return; }
 
-      const { data, error } = await (supabase as any)
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .limit(1)
-        .maybeSingle();
+      try {
+        const data = await proxyQuery({
+          table: 'user_roles',
+          operation: 'select',
+          eq_filters: [{ col: 'user_id', val: user.id }],
+          select_columns: 'role',
+          limit: 1,
+          maybe_single: true,
+        });
 
-      if (data?.role) {
-        setRole(data.role as AppRole);
-      } else {
+        if (data?.role) {
+          setRole(data.role as AppRole);
+        } else {
+          setRole('coach');
+        }
+      } catch {
         setRole('coach');
       }
       setLoading(false);
