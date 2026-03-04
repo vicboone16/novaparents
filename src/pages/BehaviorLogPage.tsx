@@ -7,7 +7,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { PenLine, Plus, Clock, MapPin, AlertTriangle, Hash, Timer, ClipboardList, Play, Pause, Square, User, Link2 } from 'lucide-react';
-import { getCurrentUser, getMyClients, type ClientSummary } from '@/lib/dal';
+import { getCurrentUser } from '@/lib/dal';
+import { useUserAccess } from '@/contexts/UserAccessContext';
 import { logBehaviorLogCreated, logImplementationLogCreated } from '@/lib/engagement';
 import { getLocalLearners, type LocalLearner } from '@/components/IndependentLearnerForm';
 import { Button } from '@/components/ui/button';
