@@ -47,8 +47,6 @@ export async function proxyQuery(params: {
  * RPC helper — routes through the proxy's "rpc" action.
  */
 export async function proxyRpc(rpcName: string, rpcParams?: Record<string, unknown>): Promise<any> {
-  const result = await callNovaTrackProxy('rpc', undefined);
-  // Re-invoke with correct body shape
   const { data, error } = await supabase.functions.invoke('novatrack-proxy', {
     body: { action: 'rpc', rpc_name: rpcName, rpc_params: rpcParams || {} },
   });
