@@ -244,7 +244,7 @@ export default function ProfilePage() {
             onSuccess={() => {
               setShowRedeem(false);
               getMyAgencyAccess().then(setAgencyAccess);
-              getMyClients().then(setClients);
+              refreshAccess();
               setTimeout(() => navigate('/'), 1500);
             }}
             compact
