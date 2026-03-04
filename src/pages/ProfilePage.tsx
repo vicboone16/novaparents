@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { getCurrentUser, signOut, checkHandshake, getMaskedBackendUrl, getMyClients, type ClientSummary } from '@/lib/dal';
+import { getCurrentUser, signOut, checkHandshake, getMaskedBackendUrl } from '@/lib/dal';
 import { User, Bell, Wrench, LogOut, CheckCircle2, XCircle, Star, Pencil, Ticket, Link2, Copy, Building2, Loader2 } from 'lucide-react';
 import { getMyTrainingProgress, type TrainingProgress } from '@/lib/parent-training-dal';
 import { getMyAttempts } from '@/lib/behavior-lab-dal';
-import { getDisplayName, updateDisplayName } from '@/lib/profile-dal';
+import { updateDisplayName } from '@/lib/profile-dal';
 import { getMyAgencyAccess, type AgencyAccess, redeemInviteCode } from '@/lib/invite-dal';
+import { useUserAccess, type StudentInfo } from '@/contexts/UserAccessContext';
 import { RedeemCodeForm } from '@/components/RedeemCodeForm';
 import { RedeemAgencyInviteCode } from '@/components/agency/RedeemAgencyInviteCode';
 import { IndependentLearnerForm } from '@/components/IndependentLearnerForm';
