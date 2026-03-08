@@ -34,7 +34,7 @@ const queryClient = new QueryClient();
 
 function AppContent() {
   const { status: handshakeStatus, errorMessage: handshakeError } = useBackendGuard();
-  const { status: accessStatus, error: accessError } = useUserAccess();
+  const { status: accessStatus, error: accessError, refresh, continueAsIndependent } = useUserAccess();
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
 
@@ -85,9 +85,21 @@ function AppContent() {
     );
   }
 
-  // Access denied
-  if (accessStatus === 'no_access' || accessStatus === 'not_provisioned' || accessStatus === 'error') {
-    return <BackendGuardScreen message={accessError || 'Access denied.'} />;
+  // Access denied — show parent-friendly onboarding for not_provisioned / no_access
+  if (accessStatus === 'no_access' || accessStatus === 'not_provisioned') {
+    return (
+      <BackendGuardScreen
+        message={accessError || 'Access denied.'}
+        allowIndependentMode
+        onContinueIndependent={continueAsIndependent}
+        onCodeRedeemed={refresh}
+      />
+    );
+  }
+
+  // Hard error (backend down, etc.)
+  if (accessStatus === 'error') {
+    return <BackendGuardScreen message={accessError || 'Something went wrong.'} />;
   }
 
   return (
