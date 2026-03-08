@@ -45,6 +45,39 @@ async function getAuthUserEmail(req: Request): Promise<string | null> {
 const userIdCache = new Map<string, { id: string; ts: number }>();
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
+async function resolveNovaCoreUserIdFromAuth(
+  nt: ReturnType<typeof buildNT>,
+  email: string
+): Promise<string | null> {
+  const normalizedEmail = email.toLowerCase().trim();
+  const perPage = 200;
+  const maxPages = 5;
+
+  for (let page = 1; page <= maxPages; page++) {
+    const { data, error } = await nt.auth.admin.listUsers({ page, perPage });
+
+    if (error) {
+      console.log(`[resolve] auth.users fallback error: ${error.message}`);
+      return null;
+    }
+
+    const users = data?.users ?? [];
+    const match = users.find(
+      (u) => (u.email ?? "").toLowerCase().trim() === normalizedEmail
+    );
+
+    if (match?.id) {
+      console.log(`[resolve] auth.users fallback hit for "${email}" on page ${page}`);
+      return match.id;
+    }
+
+    if (users.length < perPage) break;
+  }
+
+  console.log(`[resolve] auth.users fallback miss for "${email}"`);
+  return null;
+}
+
 async function resolveNovaCoreUserId(
   nt: ReturnType<typeof buildNT>,
   email: string
@@ -100,6 +133,13 @@ async function resolveNovaCoreUserId(
     .limit(3);
 
   console.log(`[resolve] fuzzy user_app_access match:`, fuzzyApp);
+
+  // Final fallback: Nova Core auth.users lookup
+  const authUserId = await resolveNovaCoreUserIdFromAuth(nt, email);
+  if (authUserId) {
+    userIdCache.set(email, { id: authUserId, ts: Date.now() });
+    return authUserId;
+  }
 
   return null;
 }
