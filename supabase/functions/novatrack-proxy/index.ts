@@ -393,6 +393,14 @@ Deno.serve(async (req) => {
       return json({ app_slug: data?.app_slug ?? null });
     }
 
+    // ─── Temporary: debug Nova Core profiles schema ───
+    if (action === "debug_nc_profiles") {
+      const { data, error } = await nt.from("profiles").select("*").limit(2);
+      console.log("[debug] NC profiles sample:", JSON.stringify(data));
+      console.log("[debug] NC profiles error:", error?.message);
+      return json({ sample: data, error: error?.message });
+    }
+
     // ─── All other actions require authentication ───
     const email = await getAuthUserEmail(req);
     if (!email) return json({ error: "not_authenticated" }, 401);
