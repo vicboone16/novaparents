@@ -1,9 +1,11 @@
 /**
- * Invite Code DAL — via Nova Core through novatrack-proxy.
+ * Invite Code DAL — via Nova Core satellite-gateway.
  */
 
-import { supabase } from '@/integrations/supabase/client';
 import { proxyQuery } from '@/lib/dal';
+
+// Use callGateway indirectly through proxyRpc for RPC calls
+import { proxyRpc } from '@/lib/dal';
 
 export interface RedeemResult {
   success: boolean;
@@ -28,27 +30,25 @@ export async function redeemInviteCode(
 ): Promise<RedeemResult> {
   const normalizedCode = code.trim().toUpperCase();
 
-  // RPC calls through the proxy
-  const { data, error } = await supabase.functions.invoke('novatrack-proxy', {
-    body: {
-      action: 'rpc',
-      rpc_name: 'redeem_invite_code',
-      rpc_params: { _code: normalizedCode, _redeemed_from: redeemedFrom },
-    },
-  });
+  try {
+    const result = await proxyRpc('redeem_invite_code', {
+      _code: normalizedCode,
+      _redeemed_from: redeemedFrom,
+    });
 
-  if (error) return { success: false, error: error.message };
-
-  const result = (data?.data ?? data) as unknown as RedeemResult;
-  if (!result.success && result.error) {
-    if (result.error === 'already_linked' && normalizedCode.startsWith('BD-')) {
-      result.error = "You're already linked to this learner.";
-    } else {
-      result.error = ERROR_MESSAGES[result.error] || result.error;
+    const parsed = (result?.data ?? result) as unknown as RedeemResult;
+    if (!parsed.success && parsed.error) {
+      if (parsed.error === 'already_linked' && normalizedCode.startsWith('BD-')) {
+        parsed.error = "You're already linked to this learner.";
+      } else {
+        parsed.error = ERROR_MESSAGES[parsed.error] || parsed.error;
+      }
     }
-  }
 
-  return result;
+    return parsed;
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
 }
 
 export interface AgencyAccess {
