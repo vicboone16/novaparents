@@ -52,12 +52,16 @@ async function resolveNovaCoreUserId(
   const cached = userIdCache.get(email);
   if (cached && Date.now() - cached.ts < CACHE_TTL_MS) return cached.id;
 
+  console.log(`[resolve] Looking up email: "${email}"`);
+
   // Primary: profiles table
-  const { data: profile } = await nt
+  const { data: profile, error: profileErr } = await nt
     .from("profiles")
-    .select("user_id")
+    .select("user_id, email")
     .eq("email", email)
     .maybeSingle();
+
+  console.log(`[resolve] profiles lookup:`, { profile, error: profileErr?.message });
 
   if (profile?.user_id) {
     userIdCache.set(email, { id: profile.user_id, ts: Date.now() });
@@ -65,18 +69,37 @@ async function resolveNovaCoreUserId(
   }
 
   // Fallback: user_app_access by email
-  const { data: appAccess } = await nt
+  const { data: appAccess, error: appErr } = await nt
     .from("user_app_access")
-    .select("user_id")
+    .select("user_id, email")
     .eq("email", email)
     .eq("is_active", true)
     .limit(1)
     .maybeSingle();
 
+  console.log(`[resolve] user_app_access lookup:`, { appAccess, error: appErr?.message });
+
   if (appAccess?.user_id) {
     userIdCache.set(email, { id: appAccess.user_id, ts: Date.now() });
     return appAccess.user_id;
   }
+
+  // Debug: try ilike match to check for case/whitespace issues
+  const { data: fuzzyMatch } = await nt
+    .from("profiles")
+    .select("user_id, email")
+    .ilike("email", `%${email.split('@')[0]}%`)
+    .limit(3);
+
+  console.log(`[resolve] fuzzy profiles match for "${email}":`, fuzzyMatch);
+
+  const { data: fuzzyApp } = await nt
+    .from("user_app_access")
+    .select("user_id, email")
+    .ilike("email", `%${email.split('@')[0]}%`)
+    .limit(3);
+
+  console.log(`[resolve] fuzzy user_app_access match:`, fuzzyApp);
 
   return null;
 }
