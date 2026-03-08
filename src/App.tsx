@@ -34,7 +34,7 @@ const queryClient = new QueryClient();
 
 function AppContent() {
   const { status: handshakeStatus, errorMessage: handshakeError } = useBackendGuard();
-  const { status: accessStatus, error: accessError } = useUserAccess();
+  const { status: accessStatus, error: accessError, refresh, continueAsIndependent } = useUserAccess();
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
 
