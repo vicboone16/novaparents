@@ -3,6 +3,7 @@
  * ─────────────────
  * Single unified call to check_user_access on login.
  * Provides user identity, roles, agencies, students to the entire app.
+ * Supports "independent mode" for parents without a Nova Core profile.
  */
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
@@ -35,6 +36,7 @@ export interface UserAccessData {
   students: StudentInfo[];
   visibleStudentIds: string[];
   appSlug: string;
+  isIndependent: boolean;
 }
 
 type AccessStatus = 'loading' | 'authenticated' | 'no_access' | 'not_provisioned' | 'unauthenticated' | 'error';
@@ -44,6 +46,7 @@ interface UserAccessContextValue {
   status: AccessStatus;
   error: string | null;
   refresh: () => Promise<void>;
+  continueAsIndependent: () => void;
 }
 
 const UserAccessCtx = createContext<UserAccessContextValue>({
@@ -51,6 +54,7 @@ const UserAccessCtx = createContext<UserAccessContextValue>({
   status: 'loading',
   error: null,
   refresh: async () => {},
+  continueAsIndependent: () => {},
 });
 
 export function useUserAccess() {
@@ -58,6 +62,8 @@ export function useUserAccess() {
 }
 
 // ─── Provider ────────────────────────────────────────────
+
+const INDEPENDENT_KEY = 'bd_independent_mode';
 
 export function UserAccessProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<UserAccessData | null>(null);
@@ -81,8 +87,15 @@ export function UserAccessProvider({ children }: { children: ReactNode }) {
       });
 
       if (result?.error === 'user_not_provisioned') {
+        // Check if this user previously chose independent mode
+        const savedIndependent = localStorage.getItem(INDEPENDENT_KEY);
+        if (savedIndependent === user.id) {
+          setData(buildIndependentData(user.id, user.email ?? ''));
+          setStatus('authenticated');
+          return;
+        }
         setStatus('not_provisioned');
-        setError('No Nova Core profile found for this email.');
+        setError('No profile found for this email.');
         return;
       }
 
@@ -105,11 +118,21 @@ export function UserAccessProvider({ children }: { children: ReactNode }) {
         students: result.students || [],
         visibleStudentIds: result.visible_student_ids || [],
         appSlug: result.app_slug || 'behavior_decoded',
+        isIndependent: false,
       };
 
       setData(accessData);
 
       if (!accessData.hasAccess) {
+        // Check independent mode override
+        const savedIndependent = localStorage.getItem(INDEPENDENT_KEY);
+        if (savedIndependent === result.user_id) {
+          accessData.isIndependent = true;
+          accessData.hasAccess = true;
+          setData(accessData);
+          setStatus('authenticated');
+          return;
+        }
         setStatus('no_access');
         setError('Your account does not have access to Behavior Decoded.');
       } else {
@@ -122,6 +145,16 @@ export function UserAccessProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const continueAsIndependent = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    localStorage.setItem(INDEPENDENT_KEY, user.id);
+    setData(buildIndependentData(user.id, user.email ?? ''));
+    setStatus('authenticated');
+    setError(null);
+  }, []);
+
   useEffect(() => {
     loadAccess();
 
@@ -131,6 +164,8 @@ export function UserAccessProvider({ children }: { children: ReactNode }) {
       } else if (event === 'SIGNED_OUT') {
         setData(null);
         setStatus('unauthenticated');
+        // Clear independent mode on sign-out
+        localStorage.removeItem(INDEPENDENT_KEY);
       }
     });
 
@@ -138,8 +173,28 @@ export function UserAccessProvider({ children }: { children: ReactNode }) {
   }, [loadAccess]);
 
   return (
-    <UserAccessCtx.Provider value={{ data, status, error, refresh: loadAccess }}>
+    <UserAccessCtx.Provider value={{ data, status, error, refresh: loadAccess, continueAsIndependent }}>
       {children}
     </UserAccessCtx.Provider>
   );
+}
+
+// ─── Helper ──────────────────────────────────────────────
+
+function buildIndependentData(userId: string, email: string): UserAccessData {
+  return {
+    userId,
+    email,
+    displayName: null,
+    roles: [],
+    isSuperAdmin: false,
+    isAdmin: false,
+    hasAccess: true,
+    appRole: 'parent',
+    agencies: [],
+    students: [],
+    visibleStudentIds: [],
+    appSlug: 'behavior_decoded',
+    isIndependent: true,
+  };
 }
