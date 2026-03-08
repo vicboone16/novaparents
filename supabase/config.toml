@@ -1,4 +1,1 @@
 project_id = "yyauktftclnfgasglhyn"
-
-[functions.novatrack-proxy]
-verify_jwt = false
