@@ -87,7 +87,6 @@ export function UserAccessProvider({ children }: { children: ReactNode }) {
       });
 
       if (result?.error === 'user_not_provisioned') {
-        // Check if this user previously chose independent mode
         const savedIndependent = localStorage.getItem(INDEPENDENT_KEY);
         if (savedIndependent === user.id) {
           setData(buildIndependentData(user.id, user.email ?? ''));
@@ -124,7 +123,6 @@ export function UserAccessProvider({ children }: { children: ReactNode }) {
       setData(accessData);
 
       if (!accessData.hasAccess) {
-        // Check independent mode override
         const savedIndependent = localStorage.getItem(INDEPENDENT_KEY);
         if (savedIndependent === result.user_id) {
           accessData.isIndependent = true;
@@ -164,7 +162,6 @@ export function UserAccessProvider({ children }: { children: ReactNode }) {
       } else if (event === 'SIGNED_OUT') {
         setData(null);
         setStatus('unauthenticated');
-        // Clear independent mode on sign-out
         localStorage.removeItem(INDEPENDENT_KEY);
       }
     });
