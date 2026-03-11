@@ -154,26 +154,23 @@ export function UserAccessProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    let initialLoad = true;
+    let hasLoadedAccess = false;
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT') {
+        hasLoadedAccess = false;
         setData(null);
         setStatus('unauthenticated');
         localStorage.removeItem(INDEPENDENT_KEY);
         return;
       }
 
-      // Load access on initial session check or explicit sign-in
       if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
-        if (event === 'SIGNED_IN' && initialLoad) {
-          // Skip duplicate — INITIAL_SESSION already handled it
-          initialLoad = false;
-          return;
-        }
-        initialLoad = false;
         if (session) {
-          loadAccess();
+          if (!hasLoadedAccess) {
+            hasLoadedAccess = true;
+            loadAccess();
+          }
         } else {
           setStatus('unauthenticated');
           setData(null);
