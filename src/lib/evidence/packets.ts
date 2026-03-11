@@ -121,9 +121,10 @@ export async function submitWeeklySnapshot(userId: string): Promise<WeeklySnapsh
         duration_logs_count: packet.durationLogsCount,
         total_active_time_sec: packet.totalActiveTimeSec,
         pages_visited: packet.pagesVisited,
-        integrity_score: packet.integrityScore,
-        billing_eligible: packet.billingEligible,
         flags_summary: packet.flagsSummary,
+        // NOTE: integrity_score and billing_eligible are intentionally omitted.
+        // They are recomputed server-side by the compute_snapshot_scores trigger
+        // to prevent client-side manipulation of billing eligibility.
       },
       single: true,
     });
