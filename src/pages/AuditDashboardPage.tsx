@@ -136,22 +136,22 @@ export default function AuditDashboardPage() {
       )}
 
       {/* Summary Stats */}
-      <div className="grid gap-3 sm:grid-cols-4">
-        <div className="rounded-xl border border-border bg-card p-4 shadow-card">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Coaches</p>
-          <p className="font-display text-2xl font-bold text-foreground mt-1">{coaches.length}</p>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="rounded-xl border border-border bg-card p-3 sm:p-4 shadow-card">
+          <p className="text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-wide">Coaches</p>
+          <p className="font-display text-xl sm:text-2xl font-bold text-foreground mt-1">{coaches.length}</p>
         </div>
-        <div className="rounded-xl border border-border bg-card p-4 shadow-card">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Avg Score</p>
-          <p className="font-display text-2xl font-bold text-primary mt-1">{avgScore}/100</p>
+        <div className="rounded-xl border border-border bg-card p-3 sm:p-4 shadow-card">
+          <p className="text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-wide">Avg Score</p>
+          <p className="font-display text-xl sm:text-2xl font-bold text-primary mt-1">{avgScore}/100</p>
         </div>
-        <div className="rounded-xl border border-border bg-card p-4 shadow-card">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Total Flags</p>
-          <p className="font-display text-2xl font-bold text-destructive mt-1">{totalFlags}</p>
+        <div className="rounded-xl border border-border bg-card p-3 sm:p-4 shadow-card">
+          <p className="text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-wide">Total Flags</p>
+          <p className="font-display text-xl sm:text-2xl font-bold text-destructive mt-1">{totalFlags}</p>
         </div>
-        <div className="rounded-xl border border-border bg-card p-4 shadow-card">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Billing Eligible</p>
-          <p className="font-display text-2xl font-bold text-success mt-1">
+        <div className="rounded-xl border border-border bg-card p-3 sm:p-4 shadow-card">
+          <p className="text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-wide">Billing Eligible</p>
+          <p className="font-display text-xl sm:text-2xl font-bold text-success mt-1">
             {coaches.filter(c => c.score.billingEligible).length}/{coaches.length}
           </p>
         </div>
@@ -225,7 +225,7 @@ export default function AuditDashboardPage() {
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-4 mt-1 text-xs text-muted-foreground">
                       <span>Score: <strong className="text-foreground">{coach.score.totalScore}/100</strong></span>
                       <span>Lessons: <strong className="text-foreground">{uniqueCompletions.size}/{TOTAL_LESSONS}</strong></span>
                       <span>Time: <strong className="text-foreground">{formatDuration(totalTime)}</strong></span>
@@ -275,7 +275,7 @@ export default function AuditDashboardPage() {
                     {/* Activity Summary */}
                     <div>
                       <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Activity Summary</h5>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                         <div className="rounded-lg bg-muted/50 p-3 text-center">
                           <p className="font-display text-lg font-bold text-foreground">{sessions.length}</p>
                           <p className="text-[10px] text-muted-foreground">Sessions</p>

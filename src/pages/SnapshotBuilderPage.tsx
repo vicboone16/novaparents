@@ -286,7 +286,7 @@ export default function SnapshotBuilderPage() {
           </div>
 
           {/* Caregiver info (optional) */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label className="text-xs font-medium text-foreground mb-1 block">Caregiver Name (optional)</label>
               <Input

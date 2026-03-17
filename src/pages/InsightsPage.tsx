@@ -162,7 +162,7 @@ export default function InsightsPage() {
             <p className="text-sm text-muted-foreground">Create a snapshot to see your overview.</p>
           </div>
         ) : (
-          <div className="grid gap-3 grid-cols-2">
+          <div className="grid grid-cols-2 gap-3">
             <StatCard label="Total Snapshots" value={String(trends.totalSnapshots)} />
             <StatCard label="Drafts" value={String(trends.draftCount)} />
             <StatCard label="Submitted" value={String(trends.submittedCount)} />

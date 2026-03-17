@@ -246,8 +246,8 @@ export default function Dashboard() {
         </div>
 
         {/* Stats row */}
-        <div className="flex gap-2 mt-4">
-          <div className="flex-1 rounded-xl bg-primary-foreground/10 p-2.5 text-center">
+        <div className="grid grid-cols-3 gap-2 mt-4 sm:grid-cols-5">
+          <div className="rounded-xl bg-primary-foreground/10 p-2.5 text-center">
             <p className="font-display text-lg font-bold">
               <span className={streak.currentStreak > 0 ? 'animate-flame' : ''}>🔥</span> {streak.currentStreak}
             </p>
@@ -256,19 +256,19 @@ export default function Dashboard() {
               <p className="text-[8px] opacity-60">Best: {streak.longestStreak}</p>
             )}
           </div>
-          <div className="flex-1 rounded-xl bg-primary-foreground/10 p-2.5 text-center">
+          <div className="rounded-xl bg-primary-foreground/10 p-2.5 text-center">
             <p className="font-display text-lg font-bold">{combinedXp}</p>
             <p className="text-[9px] opacity-80">XP</p>
           </div>
-          <div className="flex-1 rounded-xl bg-primary-foreground/10 p-2.5 text-center">
+          <div className="rounded-xl bg-primary-foreground/10 p-2.5 text-center">
             <p className="font-display text-lg font-bold">{totalModules}</p>
             <p className="text-[9px] opacity-80">Modules</p>
           </div>
-          <div className="flex-1 rounded-xl bg-primary-foreground/10 p-2.5 text-center">
+          <div className="rounded-xl bg-primary-foreground/10 p-2.5 text-center">
             <p className="font-display text-lg font-bold">{labGames}</p>
             <p className="text-[9px] opacity-80">Lab</p>
           </div>
-          <div className="flex-1 rounded-xl bg-primary-foreground/10 p-2.5 text-center">
+          <div className="rounded-xl bg-primary-foreground/10 p-2.5 text-center">
             <p className="font-display text-lg font-bold">{snapshots.length}</p>
             <p className="text-[9px] opacity-80">Snapshots</p>
           </div>
@@ -437,7 +437,7 @@ export default function Dashboard() {
       {/* Quick Actions */}
       <section>
         <h3 className="font-display text-sm font-bold text-foreground mb-3">Quick Actions</h3>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-3 gap-2 sm:gap-3">
           {[
             { to: '/log', icon: PenLine, label: 'Log Data', color: 'bg-secondary/10 text-secondary' },
             { to: '/insights/new', icon: Package, label: 'Weekly Snapshot', color: 'bg-primary/10 text-primary' },
@@ -446,12 +446,12 @@ export default function Dashboard() {
             <Link
               key={i}
               to={action.to}
-              className="flex flex-col items-center gap-2 rounded-xl border border-border bg-card p-4 shadow-card hover:shadow-soft transition-all text-center"
+              className="flex flex-col items-center gap-1.5 sm:gap-2 rounded-xl border border-border bg-card p-3 sm:p-4 shadow-card hover:shadow-soft transition-all text-center"
             >
-              <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${action.color}`}>
-                <action.icon className="h-5 w-5" />
+              <div className={`flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl ${action.color}`}>
+                <action.icon className="h-4 w-4 sm:h-5 sm:w-5" />
               </div>
-              <span className="text-xs font-semibold text-foreground leading-tight">{action.label}</span>
+              <span className="text-[10px] sm:text-xs font-semibold text-foreground leading-tight">{action.label}</span>
             </Link>
           ))}
         </div>
