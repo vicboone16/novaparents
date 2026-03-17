@@ -35,11 +35,11 @@ function useStage2AcademyCheck(): { academyModule1Done: boolean; translatorRuns:
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        // Find the module with canonical_key = 'foundations_behavior_job'
+        // Find Module 1 (first foundations module) by canonical_key
         const { data: modules } = await supabase
           .from('academy_modules')
           .select('id')
-          .eq('canonical_key', 'foundations_behavior_job')
+          .eq('canonical_key', 'mod-behavior-communication')
           .limit(1);
 
         if (!modules || modules.length === 0) return;
