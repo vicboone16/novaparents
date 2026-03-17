@@ -15,21 +15,21 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   useEngagement();
   const navigate = useNavigate();
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="min-h-screen min-h-[100dvh] bg-background pb-20 overflow-x-hidden">
       {/* Top Bar */}
-      <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-md">
-        <div className="container flex h-14 items-center gap-3">
+      <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-md safe-area-top">
+        <div className="container flex h-14 items-center gap-3 px-4 sm:px-6">
           <div className="flex h-8 w-8 items-center justify-center rounded-xl gradient-hero">
             <span className="text-sm font-bold text-primary-foreground">B</span>
           </div>
-          <div className="flex-1">
-            <h1 className="font-display text-base font-bold leading-tight text-foreground">
+          <div className="flex-1 min-w-0">
+            <h1 className="font-display text-base font-bold leading-tight text-foreground truncate">
               Behavior Decoded™
             </h1>
           </div>
           <button
             onClick={() => navigate('/profile')}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors shrink-0"
             aria-label="Profile"
           >
             <User className="h-4 w-4" />
@@ -38,7 +38,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       </header>
 
       {/* Main Content */}
-      <main className="container py-5 animate-fade-in">
+      <main className="container py-5 px-4 sm:px-6 animate-fade-in max-w-full overflow-x-hidden">
         {children}
       </main>
 

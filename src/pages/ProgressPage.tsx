@@ -150,7 +150,7 @@ function CoachGrowth({ userId }: { userId: string }) {
       </div>
 
       {/* Activity stats */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <StatCard icon={BookOpen} label="Lessons" value={`${lessonsCompleted}/${TOTAL_LESSONS}`} color="text-primary" />
         <StatCard icon={PenLine} label="Reflections" value={String(reflections)} color="text-accent" />
         <StatCard icon={BarChart3} label="Quizzes" value={String(quizzes)} color="text-secondary" />

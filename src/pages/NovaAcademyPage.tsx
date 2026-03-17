@@ -183,7 +183,7 @@ export default function NovaAcademyPage() {
       {showGlossary && (
         <div className="rounded-xl border border-primary/10 bg-primary/5 p-4 space-y-2 animate-fade-in">
           <p className="text-xs font-semibold text-primary">Quick Glossary</p>
-          <div className="grid grid-cols-2 gap-2 text-[11px] text-foreground">
+          <div className="grid gap-2 sm:grid-cols-2 text-[11px] text-foreground">
             <div><span className="font-semibold">Function</span> — Why a behavior happens</div>
             <div><span className="font-semibold">Antecedent</span> — What happens before</div>
             <div><span className="font-semibold">Reinforcement</span> — What makes behavior continue</div>

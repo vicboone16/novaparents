@@ -275,7 +275,7 @@ export default function AuditDashboardPage() {
                     {/* Activity Summary */}
                     <div>
                       <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Activity Summary</h5>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                         <div className="rounded-lg bg-muted/50 p-3 text-center">
                           <p className="font-display text-lg font-bold text-foreground">{sessions.length}</p>
                           <p className="text-[10px] text-muted-foreground">Sessions</p>

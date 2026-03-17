@@ -49,7 +49,7 @@ export function EvidencePacketPreview({ userId, open, onClose, onConfirmSubmit, 
 
         <div className="p-5 space-y-5">
           {/* Summary Stats */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 gap-2 sm:gap-3">
             <SummaryCard icon={BookOpen} label="Lessons" value={packet.lessonsCompleted.length} color="text-primary" />
             <SummaryCard icon={PenLine} label="Data Logs" value={totalLogs} color="text-secondary" />
             <SummaryCard icon={Shield} label="Score" value={packet.integrityScore} color="text-accent" />
