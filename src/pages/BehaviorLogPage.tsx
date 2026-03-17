@@ -5,7 +5,7 @@
  * Coaches log Learner data here — never clinical SOAP notes.
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { PenLine, Plus, Clock, MapPin, AlertTriangle, Hash, Timer, ClipboardList, Play, Pause, Square, User, Link2 } from 'lucide-react';
 import { getCurrentUser } from '@/lib/dal';
 import { useUserAccess } from '@/contexts/UserAccessContext';
