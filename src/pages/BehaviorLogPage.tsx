@@ -8,6 +8,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { PenLine, Plus, Clock, MapPin, AlertTriangle, Hash, Timer, ClipboardList, Play, Pause, Square, User, Link2 } from 'lucide-react';
 import { getCurrentUser } from '@/lib/dal';
+import { supabase } from '@/integrations/supabase/client';
 import { useUserAccess } from '@/contexts/UserAccessContext';
 import { logBehaviorLogCreated, logImplementationLogCreated } from '@/lib/engagement';
 import { getLocalLearners, type LocalLearner } from '@/components/IndependentLearnerForm';
