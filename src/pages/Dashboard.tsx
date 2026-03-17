@@ -246,8 +246,8 @@ export default function Dashboard() {
         </div>
 
         {/* Stats row */}
-        <div className="flex gap-2 mt-4">
-          <div className="flex-1 rounded-xl bg-primary-foreground/10 p-2.5 text-center">
+        <div className="grid grid-cols-3 gap-2 mt-4 sm:grid-cols-5">
+          <div className="rounded-xl bg-primary-foreground/10 p-2.5 text-center">
             <p className="font-display text-lg font-bold">
               <span className={streak.currentStreak > 0 ? 'animate-flame' : ''}>🔥</span> {streak.currentStreak}
             </p>
@@ -256,19 +256,19 @@ export default function Dashboard() {
               <p className="text-[8px] opacity-60">Best: {streak.longestStreak}</p>
             )}
           </div>
-          <div className="flex-1 rounded-xl bg-primary-foreground/10 p-2.5 text-center">
+          <div className="rounded-xl bg-primary-foreground/10 p-2.5 text-center">
             <p className="font-display text-lg font-bold">{combinedXp}</p>
             <p className="text-[9px] opacity-80">XP</p>
           </div>
-          <div className="flex-1 rounded-xl bg-primary-foreground/10 p-2.5 text-center">
+          <div className="rounded-xl bg-primary-foreground/10 p-2.5 text-center">
             <p className="font-display text-lg font-bold">{totalModules}</p>
             <p className="text-[9px] opacity-80">Modules</p>
           </div>
-          <div className="flex-1 rounded-xl bg-primary-foreground/10 p-2.5 text-center">
+          <div className="rounded-xl bg-primary-foreground/10 p-2.5 text-center">
             <p className="font-display text-lg font-bold">{labGames}</p>
             <p className="text-[9px] opacity-80">Lab</p>
           </div>
-          <div className="flex-1 rounded-xl bg-primary-foreground/10 p-2.5 text-center">
+          <div className="rounded-xl bg-primary-foreground/10 p-2.5 text-center">
             <p className="font-display text-lg font-bold">{snapshots.length}</p>
             <p className="text-[9px] opacity-80">Snapshots</p>
           </div>
