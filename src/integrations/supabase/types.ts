@@ -546,6 +546,42 @@ export type Database = {
         }
         Relationships: []
       }
+      duration_logs: {
+        Row: {
+          behavior: string
+          created_at: string
+          date: string
+          duration_min: number
+          id: string
+          learner_id: string | null
+          notes: string | null
+          setting: string | null
+          user_id: string
+        }
+        Insert: {
+          behavior: string
+          created_at?: string
+          date?: string
+          duration_min?: number
+          id?: string
+          learner_id?: string | null
+          notes?: string | null
+          setting?: string | null
+          user_id: string
+        }
+        Update: {
+          behavior?: string
+          created_at?: string
+          date?: string
+          duration_min?: number
+          id?: string
+          learner_id?: string | null
+          notes?: string | null
+          setting?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       evidence_packets: {
         Row: {
           behavior_logs_count: number
@@ -608,6 +644,45 @@ export type Database = {
           status?: string
           submitted_at?: string | null
           total_active_time_sec?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      frequency_logs: {
+        Row: {
+          behavior: string
+          count: number
+          created_at: string
+          date: string
+          id: string
+          learner_id: string | null
+          notes: string | null
+          period: string | null
+          setting: string | null
+          user_id: string
+        }
+        Insert: {
+          behavior: string
+          count?: number
+          created_at?: string
+          date?: string
+          id?: string
+          learner_id?: string | null
+          notes?: string | null
+          period?: string | null
+          setting?: string | null
+          user_id: string
+        }
+        Update: {
+          behavior?: string
+          count?: number
+          created_at?: string
+          date?: string
+          id?: string
+          learner_id?: string | null
+          notes?: string | null
+          period?: string | null
+          setting?: string | null
           user_id?: string
         }
         Relationships: []

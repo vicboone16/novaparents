@@ -5,9 +5,10 @@
  * Coaches log Learner data here — never clinical SOAP notes.
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { PenLine, Plus, Clock, MapPin, AlertTriangle, Hash, Timer, ClipboardList, Play, Pause, Square, User, Link2 } from 'lucide-react';
 import { getCurrentUser } from '@/lib/dal';
+import { supabase } from '@/integrations/supabase/client';
 import { useUserAccess } from '@/contexts/UserAccessContext';
 import { logBehaviorLogCreated, logImplementationLogCreated } from '@/lib/engagement';
 import { getLocalLearners, type LocalLearner } from '@/components/IndependentLearnerForm';
@@ -261,11 +262,13 @@ export default function BehaviorLogPage() {
         ))}
       </div>
 
-      {/* Sync banner */}
-      <div className="flex items-center gap-2 rounded-xl bg-warning/10 border border-warning/20 px-4 py-2.5 text-xs text-foreground">
-        <AlertTriangle className="h-3.5 w-3.5 text-warning shrink-0" />
-        <span>Saved locally. Syncs to your Weekly Snapshot.</span>
-      </div>
+      {/* Sync banner — only for independent mode */}
+      {accessData?.isIndependent !== false && (
+        <div className="flex items-center gap-2 rounded-xl bg-warning/10 border border-warning/20 px-4 py-2.5 text-xs text-foreground">
+          <AlertTriangle className="h-3.5 w-3.5 text-warning shrink-0" />
+          <span>Saved locally. Syncs to your Weekly Snapshot.</span>
+        </div>
+      )}
 
       {tab === 'abc' && <ABCTab userId={userId} learnerId={selectedLearner} learners={learners} />}
       {tab === 'frequency' && <FrequencyTab userId={userId} learnerId={selectedLearner} learners={learners} />}
@@ -428,20 +431,60 @@ function ABCTab({ userId, learnerId, learners }: TabProps) {
 // ─── Frequency Tab ───────────────────────────────────────
 
 function FrequencyTab({ userId, learnerId, learners }: TabProps) {
-  const [entries, setEntries] = useState<FrequencyEntry[]>(() => load('bd_frequency_log'));
+  const { data: accessData } = useUserAccess();
+  const isAgency = accessData && !accessData.isIndependent && userId;
+  const [entries, setEntries] = useState<FrequencyEntry[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ behavior: '', count: '', period: '', setting: '', notes: '' });
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => { save('bd_frequency_log', entries); }, [entries]);
+  // Load entries: DB for agency users, localStorage for independent
+  const loadEntries = useCallback(async () => {
+    if (isAgency) {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('frequency_logs')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(100);
+      if (!error && data) {
+        setEntries(data.map(r => ({
+          id: r.id, date: r.date, behavior: r.behavior, count: r.count,
+          period: r.period || '1 hour', setting: r.setting || '', notes: r.notes || '',
+          learnerId: r.learner_id || undefined,
+        })));
+      }
+      setLoading(false);
+    } else {
+      setEntries(load('bd_frequency_log'));
+    }
+  }, [isAgency, userId]);
 
-  function handleSave() {
+  useEffect(() => { loadEntries(); }, [loadEntries]);
+
+  // Keep localStorage in sync for independent users
+  useEffect(() => { if (!isAgency) save('bd_frequency_log', entries); }, [entries, isAgency]);
+
+  async function handleSave() {
     if (!form.behavior || !form.count) return;
+    const now = new Date();
     const entry: FrequencyEntry = {
-      id: crypto.randomUUID(), date: new Date().toISOString().split('T')[0],
+      id: crypto.randomUUID(), date: now.toISOString().split('T')[0],
       behavior: form.behavior, count: Number(form.count), period: form.period || '1 hour',
       setting: form.setting, notes: form.notes, learnerId: learnerId || undefined,
     };
-    setEntries([entry, ...entries]);
+
+    if (isAgency) {
+      const { error } = await supabase.from('frequency_logs').insert({
+        id: entry.id, user_id: userId, learner_id: learnerId || null,
+        date: entry.date, behavior: entry.behavior, count: entry.count,
+        period: entry.period, setting: entry.setting || null, notes: entry.notes || null,
+      });
+      if (error) { console.error('[FreqLog] DB insert error:', error); return; }
+    }
+
+    setEntries(prev => [entry, ...prev]);
     if (userId) logBehaviorLogCreated(userId, entry.id);
     setForm({ behavior: '', count: '', period: '', setting: '', notes: '' });
     setShowForm(false);
@@ -449,10 +492,17 @@ function FrequencyTab({ userId, learnerId, learners }: TabProps) {
 
   function linkEntry(entryId: string, newLearnerId: string) {
     setEntries(prev => prev.map(e => e.id === entryId ? { ...e, learnerId: newLearnerId } : e));
+    if (isAgency) {
+      supabase.from('frequency_logs').update({ learner_id: newLearnerId }).eq('id', entryId).then();
+    }
   }
 
   function linkAllUnpaired(newLearnerId: string) {
+    const unpairedIds = entries.filter(e => !e.learnerId).map(e => e.id);
     setEntries(prev => prev.map(e => e.learnerId ? e : { ...e, learnerId: newLearnerId }));
+    if (isAgency && unpairedIds.length > 0) {
+      supabase.from('frequency_logs').update({ learner_id: newLearnerId }).in('id', unpairedIds).then();
+    }
   }
 
   const filtered = learnerId ? entries.filter(e => e.learnerId === learnerId) : entries;
@@ -460,8 +510,9 @@ function FrequencyTab({ userId, learnerId, learners }: TabProps) {
 
   return (
     <div className="space-y-3">
-      <div className="flex justify-end">
-        <Button size="sm" onClick={() => setShowForm(!showForm)} className="gap-1"><Plus className="h-4 w-4" /> New Frequency</Button>
+      <div className="flex items-center justify-between">
+        {isAgency && <span className="text-[10px] text-success font-medium">✓ Synced to database</span>}
+        <Button size="sm" onClick={() => setShowForm(!showForm)} className="gap-1 ml-auto"><Plus className="h-4 w-4" /> New Frequency</Button>
       </div>
       {showForm && (
         <div className="animate-fade-in rounded-xl border border-primary/20 bg-card p-4 shadow-soft space-y-3">
@@ -506,7 +557,9 @@ function FrequencyTab({ userId, learnerId, learners }: TabProps) {
         </div>
       )}
 
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="text-center py-8 text-sm text-muted-foreground">Loading…</div>
+      ) : filtered.length === 0 ? (
         <EmptyState icon={Hash} message={learnerId ? "No frequency entries for this learner." : "No frequency entries yet."} />
       ) : (
         filtered.slice(0, 20).map(e => (
@@ -530,19 +583,54 @@ function FrequencyTab({ userId, learnerId, learners }: TabProps) {
 // ─── Duration Tab ────────────────────────────────────────
 
 function DurationTab({ userId, learnerId, learners }: TabProps) {
-  const [entries, setEntries] = useState<DurationEntry[]>(() => load('bd_duration_log'));
+  const { data: accessData } = useUserAccess();
+  const isAgency = accessData && !accessData.isIndependent && userId;
+  const [entries, setEntries] = useState<DurationEntry[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ behavior: '', durationMin: '', setting: '', notes: '' });
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => { save('bd_duration_log', entries); }, [entries]);
+  const loadEntries = useCallback(async () => {
+    if (isAgency) {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('duration_logs')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(100);
+      if (!error && data) {
+        setEntries(data.map(r => ({
+          id: r.id, date: r.date, behavior: r.behavior, durationMin: Number(r.duration_min),
+          setting: r.setting || '', notes: r.notes || '', learnerId: r.learner_id || undefined,
+        })));
+      }
+      setLoading(false);
+    } else {
+      setEntries(load('bd_duration_log'));
+    }
+  }, [isAgency, userId]);
 
-  function handleSave() {
+  useEffect(() => { loadEntries(); }, [loadEntries]);
+  useEffect(() => { if (!isAgency) save('bd_duration_log', entries); }, [entries, isAgency]);
+
+  async function handleSave() {
     if (!form.behavior || !form.durationMin) return;
     const entry: DurationEntry = {
       id: crypto.randomUUID(), date: new Date().toISOString().split('T')[0],
       behavior: form.behavior, durationMin: Number(form.durationMin), setting: form.setting, notes: form.notes, learnerId: learnerId || undefined,
     };
-    setEntries([entry, ...entries]);
+
+    if (isAgency) {
+      const { error } = await supabase.from('duration_logs').insert({
+        id: entry.id, user_id: userId, learner_id: learnerId || null,
+        date: entry.date, behavior: entry.behavior, duration_min: entry.durationMin,
+        setting: entry.setting || null, notes: entry.notes || null,
+      });
+      if (error) { console.error('[DurLog] DB insert error:', error); return; }
+    }
+
+    setEntries(prev => [entry, ...prev]);
     if (userId) logBehaviorLogCreated(userId, entry.id);
     setForm({ behavior: '', durationMin: '', setting: '', notes: '' });
     setShowForm(false);
@@ -550,10 +638,17 @@ function DurationTab({ userId, learnerId, learners }: TabProps) {
 
   function linkEntry(entryId: string, newLearnerId: string) {
     setEntries(prev => prev.map(e => e.id === entryId ? { ...e, learnerId: newLearnerId } : e));
+    if (isAgency) {
+      supabase.from('duration_logs').update({ learner_id: newLearnerId }).eq('id', entryId).then();
+    }
   }
 
   function linkAllUnpaired(newLearnerId: string) {
+    const unpairedIds = entries.filter(e => !e.learnerId).map(e => e.id);
     setEntries(prev => prev.map(e => e.learnerId ? e : { ...e, learnerId: newLearnerId }));
+    if (isAgency && unpairedIds.length > 0) {
+      supabase.from('duration_logs').update({ learner_id: newLearnerId }).in('id', unpairedIds).then();
+    }
   }
 
   const filtered = learnerId ? entries.filter(e => e.learnerId === learnerId) : entries;
@@ -561,8 +656,9 @@ function DurationTab({ userId, learnerId, learners }: TabProps) {
 
   return (
     <div className="space-y-3">
-      <div className="flex justify-end">
-        <Button size="sm" onClick={() => setShowForm(!showForm)} className="gap-1"><Plus className="h-4 w-4" /> New Duration</Button>
+      <div className="flex items-center justify-between">
+        {isAgency && <span className="text-[10px] text-success font-medium">✓ Synced to database</span>}
+        <Button size="sm" onClick={() => setShowForm(!showForm)} className="gap-1 ml-auto"><Plus className="h-4 w-4" /> New Duration</Button>
       </div>
       {showForm && (
         <div className="animate-fade-in rounded-xl border border-primary/20 bg-card p-4 shadow-soft space-y-3">
@@ -603,7 +699,9 @@ function DurationTab({ userId, learnerId, learners }: TabProps) {
         </div>
       )}
 
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="text-center py-8 text-sm text-muted-foreground">Loading…</div>
+      ) : filtered.length === 0 ? (
         <EmptyState icon={Clock} message={learnerId ? "No duration entries for this learner." : "No duration entries yet."} />
       ) : (
         filtered.slice(0, 20).map(e => (
