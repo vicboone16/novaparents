@@ -429,20 +429,60 @@ function ABCTab({ userId, learnerId, learners }: TabProps) {
 // ─── Frequency Tab ───────────────────────────────────────
 
 function FrequencyTab({ userId, learnerId, learners }: TabProps) {
-  const [entries, setEntries] = useState<FrequencyEntry[]>(() => load('bd_frequency_log'));
+  const { data: accessData } = useUserAccess();
+  const isAgency = accessData && !accessData.isIndependent && userId;
+  const [entries, setEntries] = useState<FrequencyEntry[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ behavior: '', count: '', period: '', setting: '', notes: '' });
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => { save('bd_frequency_log', entries); }, [entries]);
+  // Load entries: DB for agency users, localStorage for independent
+  const loadEntries = useCallback(async () => {
+    if (isAgency) {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('frequency_logs')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(100);
+      if (!error && data) {
+        setEntries(data.map(r => ({
+          id: r.id, date: r.date, behavior: r.behavior, count: r.count,
+          period: r.period || '1 hour', setting: r.setting || '', notes: r.notes || '',
+          learnerId: r.learner_id || undefined,
+        })));
+      }
+      setLoading(false);
+    } else {
+      setEntries(load('bd_frequency_log'));
+    }
+  }, [isAgency, userId]);
 
-  function handleSave() {
+  useEffect(() => { loadEntries(); }, [loadEntries]);
+
+  // Keep localStorage in sync for independent users
+  useEffect(() => { if (!isAgency) save('bd_frequency_log', entries); }, [entries, isAgency]);
+
+  async function handleSave() {
     if (!form.behavior || !form.count) return;
+    const now = new Date();
     const entry: FrequencyEntry = {
-      id: crypto.randomUUID(), date: new Date().toISOString().split('T')[0],
+      id: crypto.randomUUID(), date: now.toISOString().split('T')[0],
       behavior: form.behavior, count: Number(form.count), period: form.period || '1 hour',
       setting: form.setting, notes: form.notes, learnerId: learnerId || undefined,
     };
-    setEntries([entry, ...entries]);
+
+    if (isAgency) {
+      const { error } = await supabase.from('frequency_logs').insert({
+        id: entry.id, user_id: userId, learner_id: learnerId || null,
+        date: entry.date, behavior: entry.behavior, count: entry.count,
+        period: entry.period, setting: entry.setting || null, notes: entry.notes || null,
+      });
+      if (error) { console.error('[FreqLog] DB insert error:', error); return; }
+    }
+
+    setEntries(prev => [entry, ...prev]);
     if (userId) logBehaviorLogCreated(userId, entry.id);
     setForm({ behavior: '', count: '', period: '', setting: '', notes: '' });
     setShowForm(false);
@@ -450,10 +490,17 @@ function FrequencyTab({ userId, learnerId, learners }: TabProps) {
 
   function linkEntry(entryId: string, newLearnerId: string) {
     setEntries(prev => prev.map(e => e.id === entryId ? { ...e, learnerId: newLearnerId } : e));
+    if (isAgency) {
+      supabase.from('frequency_logs').update({ learner_id: newLearnerId }).eq('id', entryId).then();
+    }
   }
 
   function linkAllUnpaired(newLearnerId: string) {
+    const unpairedIds = entries.filter(e => !e.learnerId).map(e => e.id);
     setEntries(prev => prev.map(e => e.learnerId ? e : { ...e, learnerId: newLearnerId }));
+    if (isAgency && unpairedIds.length > 0) {
+      supabase.from('frequency_logs').update({ learner_id: newLearnerId }).in('id', unpairedIds).then();
+    }
   }
 
   const filtered = learnerId ? entries.filter(e => e.learnerId === learnerId) : entries;
@@ -461,8 +508,9 @@ function FrequencyTab({ userId, learnerId, learners }: TabProps) {
 
   return (
     <div className="space-y-3">
-      <div className="flex justify-end">
-        <Button size="sm" onClick={() => setShowForm(!showForm)} className="gap-1"><Plus className="h-4 w-4" /> New Frequency</Button>
+      <div className="flex items-center justify-between">
+        {isAgency && <span className="text-[10px] text-success font-medium">✓ Synced to database</span>}
+        <Button size="sm" onClick={() => setShowForm(!showForm)} className="gap-1 ml-auto"><Plus className="h-4 w-4" /> New Frequency</Button>
       </div>
       {showForm && (
         <div className="animate-fade-in rounded-xl border border-primary/20 bg-card p-4 shadow-soft space-y-3">
@@ -507,7 +555,9 @@ function FrequencyTab({ userId, learnerId, learners }: TabProps) {
         </div>
       )}
 
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="text-center py-8 text-sm text-muted-foreground">Loading…</div>
+      ) : filtered.length === 0 ? (
         <EmptyState icon={Hash} message={learnerId ? "No frequency entries for this learner." : "No frequency entries yet."} />
       ) : (
         filtered.slice(0, 20).map(e => (
