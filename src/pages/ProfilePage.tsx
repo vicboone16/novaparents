@@ -387,7 +387,7 @@ export default function ProfilePage() {
         </button>
         {showDiag && (
           <div className="border-t border-border p-4 space-y-2 animate-fade-in">
-            <DiagRow label="app_slug" value={diagnostics.appSlug || '…'} ok={diagnostics.appSlug === 'novatrack'} />
+            <DiagRow label="app_slug" value={diagnostics.appSlug || '…'} ok={diagnostics.appSlug === 'behaviordecoded' || diagnostics.appSlug === 'novatrack'} />
             <DiagRow label="Backend" value={diagnostics.supabaseUrl || '…'} />
             <DiagRow label="Last Ping" value={diagnostics.lastPing || '…'} ok={diagnostics.lastPing !== 'Failed'} />
           </div>

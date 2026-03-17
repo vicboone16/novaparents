@@ -32,7 +32,7 @@ type Step = 'week' | 'build' | 'preview';
 export default function SnapshotBuilderPage() {
   const [step, setStep] = useState<Step>('week');
   const [agencyLink, setAgencyLink] = useState<AgencyLinkInfo>({ isLinked: false });
-  const [learners, setLearners] = useState<{ clientId: string; agencyId: string }[]>([]);
+  const [learners, setLearners] = useState<{ clientId: string; agencyId: string; firstName?: string; lastName?: string }[]>([]);
   const [selectedLearnerId, setSelectedLearnerId] = useState<string>('');
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -182,7 +182,9 @@ export default function SnapshotBuilderPage() {
               className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
             >
               {learners.map(l => (
-                <option key={l.clientId} value={l.clientId}>{l.clientId.slice(0, 8)}…</option>
+                <option key={l.clientId} value={l.clientId}>
+                  {l.firstName && l.lastName ? `${l.firstName} ${l.lastName}` : l.clientId.slice(0, 8) + '…'}
+                </option>
               ))}
             </select>
           </div>
