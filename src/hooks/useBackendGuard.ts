@@ -10,7 +10,7 @@ export function useBackendGuard() {
   useEffect(() => {
     checkHandshake()
       .then(({ appSlug }) => {
-        if (appSlug === 'behaviordecoded') {
+        if (appSlug === 'behaviordecoded' || appSlug === 'behavior_decoded') {
           setStatus('valid');
         } else {
           setErrorMessage('Wrong backend connected.');
