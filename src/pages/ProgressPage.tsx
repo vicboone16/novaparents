@@ -72,7 +72,7 @@ function LearnerProgress() {
 
   return (
     <div className="space-y-4 animate-fade-in">
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <StatCard icon={PenLine} label="Total Data Logs" value={String(totalLogs)} color="text-primary" />
         <StatCard icon={BarChart3} label="ABC Entries" value={String(behaviorLogs.length)} color="text-secondary" />
         <StatCard icon={Calendar} label="Logging Streak" value="—" color="text-accent" sub="Syncs with backend" />
