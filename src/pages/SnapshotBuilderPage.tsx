@@ -32,7 +32,7 @@ type Step = 'week' | 'build' | 'preview';
 export default function SnapshotBuilderPage() {
   const [step, setStep] = useState<Step>('week');
   const [agencyLink, setAgencyLink] = useState<AgencyLinkInfo>({ isLinked: false });
-  const [learners, setLearners] = useState<{ clientId: string; agencyId: string }[]>([]);
+  const [learners, setLearners] = useState<{ clientId: string; agencyId: string; firstName?: string; lastName?: string }[]>([]);
   const [selectedLearnerId, setSelectedLearnerId] = useState<string>('');
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
