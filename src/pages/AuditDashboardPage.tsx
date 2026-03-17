@@ -225,7 +225,7 @@ export default function AuditDashboardPage() {
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-4 mt-1 text-xs text-muted-foreground">
                       <span>Score: <strong className="text-foreground">{coach.score.totalScore}/100</strong></span>
                       <span>Lessons: <strong className="text-foreground">{uniqueCompletions.size}/{TOTAL_LESSONS}</strong></span>
                       <span>Time: <strong className="text-foreground">{formatDuration(totalTime)}</strong></span>
