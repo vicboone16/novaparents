@@ -262,11 +262,13 @@ export default function BehaviorLogPage() {
         ))}
       </div>
 
-      {/* Sync banner */}
-      <div className="flex items-center gap-2 rounded-xl bg-warning/10 border border-warning/20 px-4 py-2.5 text-xs text-foreground">
-        <AlertTriangle className="h-3.5 w-3.5 text-warning shrink-0" />
-        <span>Saved locally. Syncs to your Weekly Snapshot.</span>
-      </div>
+      {/* Sync banner — only for independent mode */}
+      {accessData?.isIndependent !== false && (
+        <div className="flex items-center gap-2 rounded-xl bg-warning/10 border border-warning/20 px-4 py-2.5 text-xs text-foreground">
+          <AlertTriangle className="h-3.5 w-3.5 text-warning shrink-0" />
+          <span>Saved locally. Syncs to your Weekly Snapshot.</span>
+        </div>
+      )}
 
       {tab === 'abc' && <ABCTab userId={userId} learnerId={selectedLearner} learners={learners} />}
       {tab === 'frequency' && <FrequencyTab userId={userId} learnerId={selectedLearner} learners={learners} />}
