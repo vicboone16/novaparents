@@ -182,33 +182,9 @@ export interface ReplacementBehavior {
 import { SEED_LIBRARY } from './dal-seed-library';
 
 export async function getReplacementBehaviors(): Promise<ReplacementBehavior[]> {
-  try {
-    const data = await proxyQuery({
-      table: 'parent_safe_replacement_behaviors',
-      operation: 'select',
-    });
-
-    if (!data?.length) {
-      console.info('[DAL] No DB library found, using seed data.');
-      return SEED_LIBRARY;
-    }
-
-    return (data as any[]).map((row: any) => ({
-      id: String(row.id),
-      trigger: row.trigger || row.name || '',
-      function: row.function_category || 'attention',
-      ageBand: row.age_band || 'school-age',
-      setting: row.setting || 'home',
-      commLevel: row.comm_level || 'verbal',
-      definition: row.definition || '',
-      teachingSteps: row.teaching_steps || [],
-      prompts: row.prompts || [],
-      reinforcement: row.reinforcement || '',
-      generalization: row.generalization || '',
-    }));
-  } catch {
-    return SEED_LIBRARY;
-  }
+  // parent_safe_replacement_behaviors table is not yet provisioned on Nova Core.
+  // Use local seed library to avoid unnecessary 400 errors on every page load.
+  return SEED_LIBRARY;
 }
 
 // ─── Behavior Logs (local-first for Phase 1) ─────────────
