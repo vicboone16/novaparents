@@ -136,22 +136,22 @@ export default function AuditDashboardPage() {
       )}
 
       {/* Summary Stats */}
-      <div className="grid gap-3 sm:grid-cols-4">
-        <div className="rounded-xl border border-border bg-card p-4 shadow-card">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Coaches</p>
-          <p className="font-display text-2xl font-bold text-foreground mt-1">{coaches.length}</p>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="rounded-xl border border-border bg-card p-3 sm:p-4 shadow-card">
+          <p className="text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-wide">Coaches</p>
+          <p className="font-display text-xl sm:text-2xl font-bold text-foreground mt-1">{coaches.length}</p>
         </div>
-        <div className="rounded-xl border border-border bg-card p-4 shadow-card">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Avg Score</p>
-          <p className="font-display text-2xl font-bold text-primary mt-1">{avgScore}/100</p>
+        <div className="rounded-xl border border-border bg-card p-3 sm:p-4 shadow-card">
+          <p className="text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-wide">Avg Score</p>
+          <p className="font-display text-xl sm:text-2xl font-bold text-primary mt-1">{avgScore}/100</p>
         </div>
-        <div className="rounded-xl border border-border bg-card p-4 shadow-card">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Total Flags</p>
-          <p className="font-display text-2xl font-bold text-destructive mt-1">{totalFlags}</p>
+        <div className="rounded-xl border border-border bg-card p-3 sm:p-4 shadow-card">
+          <p className="text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-wide">Total Flags</p>
+          <p className="font-display text-xl sm:text-2xl font-bold text-destructive mt-1">{totalFlags}</p>
         </div>
-        <div className="rounded-xl border border-border bg-card p-4 shadow-card">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Billing Eligible</p>
-          <p className="font-display text-2xl font-bold text-success mt-1">
+        <div className="rounded-xl border border-border bg-card p-3 sm:p-4 shadow-card">
+          <p className="text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-wide">Billing Eligible</p>
+          <p className="font-display text-xl sm:text-2xl font-bold text-success mt-1">
             {coaches.filter(c => c.score.billingEligible).length}/{coaches.length}
           </p>
         </div>
