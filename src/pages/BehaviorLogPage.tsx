@@ -772,19 +772,55 @@ function DurationTab({ userId, learnerId, learners }: TabProps) {
 // ─── Implementation Tab ──────────────────────────────────
 
 function ImplementationTab({ userId, learnerId, learners }: TabProps) {
-  const [entries, setEntries] = useState<ImplEntry[]>(() => load('bd_implementation_log'));
+  const { data: accessData } = useUserAccess();
+  const isAgency = accessData && !accessData.isIndependent && userId;
+  const [entries, setEntries] = useState<ImplEntry[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ strategy: '', context: '', outcome: '', notes: '' });
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => { save('bd_implementation_log', entries); }, [entries]);
+  const loadEntries = useCallback(async () => {
+    if (isAgency) {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('implementation_logs')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(100);
+      if (!error && data) {
+        setEntries(data.map(r => ({
+          id: r.id, date: r.date, strategy: r.strategy,
+          context: r.context || '', outcome: r.outcome || '', notes: r.notes || '',
+          learnerId: r.learner_id || undefined,
+        })));
+      }
+      setLoading(false);
+    } else {
+      setEntries(load('bd_implementation_log'));
+    }
+  }, [isAgency, userId]);
 
-  function handleSave() {
+  useEffect(() => { loadEntries(); }, [loadEntries]);
+  useEffect(() => { if (!isAgency) save('bd_implementation_log', entries); }, [entries, isAgency]);
+
+  async function handleSave() {
     if (!form.strategy) return;
     const entry: ImplEntry = {
       id: crypto.randomUUID(), date: new Date().toISOString().split('T')[0],
       strategy: form.strategy, context: form.context, outcome: form.outcome, notes: form.notes, learnerId: learnerId || undefined,
     };
-    setEntries([entry, ...entries]);
+
+    if (isAgency) {
+      const { error } = await supabase.from('implementation_logs').insert({
+        id: entry.id, user_id: userId, learner_id: learnerId || null,
+        date: entry.date, strategy: entry.strategy,
+        context: entry.context || null, outcome: entry.outcome || null, notes: entry.notes || null,
+      });
+      if (error) { console.error('[ImplLog] DB insert error:', error); return; }
+    }
+
+    setEntries(prev => [entry, ...prev]);
     if (userId) logImplementationLogCreated(userId, entry.id);
     setForm({ strategy: '', context: '', outcome: '', notes: '' });
     setShowForm(false);
@@ -792,10 +828,17 @@ function ImplementationTab({ userId, learnerId, learners }: TabProps) {
 
   function linkEntry(entryId: string, newLearnerId: string) {
     setEntries(prev => prev.map(e => e.id === entryId ? { ...e, learnerId: newLearnerId } : e));
+    if (isAgency) {
+      supabase.from('implementation_logs').update({ learner_id: newLearnerId }).eq('id', entryId).then();
+    }
   }
 
   function linkAllUnpaired(newLearnerId: string) {
+    const unpairedIds = entries.filter(e => !e.learnerId).map(e => e.id);
     setEntries(prev => prev.map(e => e.learnerId ? e : { ...e, learnerId: newLearnerId }));
+    if (isAgency && unpairedIds.length > 0) {
+      supabase.from('implementation_logs').update({ learner_id: newLearnerId }).in('id', unpairedIds).then();
+    }
   }
 
   const filtered = learnerId ? entries.filter(e => e.learnerId === learnerId) : entries;
@@ -803,8 +846,9 @@ function ImplementationTab({ userId, learnerId, learners }: TabProps) {
 
   return (
     <div className="space-y-3">
-      <div className="flex justify-end">
-        <Button size="sm" onClick={() => setShowForm(!showForm)} className="gap-1"><Plus className="h-4 w-4" /> New Entry</Button>
+      <div className="flex items-center justify-between">
+        {isAgency && <span className="text-[10px] text-success font-medium">✓ Synced to database</span>}
+        <Button size="sm" onClick={() => setShowForm(!showForm)} className="gap-1 ml-auto"><Plus className="h-4 w-4" /> New Entry</Button>
       </div>
       {showForm && (
         <div className="animate-fade-in rounded-xl border border-primary/20 bg-card p-4 shadow-soft space-y-3">
@@ -843,7 +887,9 @@ function ImplementationTab({ userId, learnerId, learners }: TabProps) {
         </div>
       )}
 
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="text-center py-8 text-sm text-muted-foreground">Loading…</div>
+      ) : filtered.length === 0 ? (
         <EmptyState icon={ClipboardList} message={learnerId ? "No implementation logs for this learner." : "No implementation logs yet. Try a strategy and log it!"} />
       ) : (
         filtered.slice(0, 20).map(e => (
