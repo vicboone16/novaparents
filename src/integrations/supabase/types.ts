@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      abc_logs: {
+        Row: {
+          antecedent: string | null
+          behavior: string
+          consequence: string | null
+          created_at: string
+          date: string
+          id: string
+          intensity: number
+          learner_id: string | null
+          notes: string | null
+          setting: string | null
+          time: string | null
+          user_id: string
+        }
+        Insert: {
+          antecedent?: string | null
+          behavior: string
+          consequence?: string | null
+          created_at?: string
+          date?: string
+          id?: string
+          intensity?: number
+          learner_id?: string | null
+          notes?: string | null
+          setting?: string | null
+          time?: string | null
+          user_id: string
+        }
+        Update: {
+          antecedent?: string | null
+          behavior?: string
+          consequence?: string | null
+          created_at?: string
+          date?: string
+          id?: string
+          intensity?: number
+          learner_id?: string | null
+          notes?: string | null
+          setting?: string | null
+          time?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       academy_module_assignments: {
         Row: {
           agency_id: string | null
@@ -683,6 +728,42 @@ export type Database = {
           notes?: string | null
           period?: string | null
           setting?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      implementation_logs: {
+        Row: {
+          context: string | null
+          created_at: string
+          date: string
+          id: string
+          learner_id: string | null
+          notes: string | null
+          outcome: string | null
+          strategy: string
+          user_id: string
+        }
+        Insert: {
+          context?: string | null
+          created_at?: string
+          date?: string
+          id?: string
+          learner_id?: string | null
+          notes?: string | null
+          outcome?: string | null
+          strategy: string
+          user_id: string
+        }
+        Update: {
+          context?: string | null
+          created_at?: string
+          date?: string
+          id?: string
+          learner_id?: string | null
+          notes?: string | null
+          outcome?: string | null
+          strategy?: string
           user_id?: string
         }
         Relationships: []
