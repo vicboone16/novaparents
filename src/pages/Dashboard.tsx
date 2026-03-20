@@ -458,6 +458,25 @@ export default function Dashboard() {
           ))}
         </div>
       </section>
+
+      {/* Admin: Demo Accounts */}
+      {isAdmin && (
+        <Link
+          to="/admin/demo-accounts"
+          className="block rounded-xl border border-border bg-card p-4 shadow-card hover:shadow-soft transition-all"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
+              <Users className="h-4 w-4 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-foreground">Demo Accounts</p>
+              <p className="text-xs text-muted-foreground">Preview the app as a demo caregiver</p>
+            </div>
+            <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
+          </div>
+        </Link>
+      )}
     </div>
   );
 }
