@@ -19,6 +19,7 @@ import { fetchSnapshots, getStatusDisplay, type WeeklySnapshot, type SnapshotSta
 import { getMyTrainingProgress } from '@/lib/parent-training-dal';
 import { getStreak, recordActivity, getStreakMilestone, checkStreakRecovery, recoverStreak, STREAK_RECOVERY_COST, type UserStreak } from '@/lib/streaks';
 import { useToast } from '@/hooks/use-toast';
+import { useUserRole } from '@/hooks/useUserRole';
 
 const ONBOARDING_KEY = 'bd_onboarding_complete';
 const GROWTH_LEVELS = [
