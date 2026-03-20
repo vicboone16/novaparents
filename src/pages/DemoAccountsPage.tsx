@@ -26,7 +26,11 @@ export default function DemoAccountsPage() {
 
   async function handleDemoLogin(demo: typeof DEMO_ACCOUNTS[0]) {
     setLoading(demo.email);
-    // Sign out current admin session first
+    // Stash admin email so we can show "return to admin" banner
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user?.email) {
+      sessionStorage.setItem('bd_admin_return_email', user.email);
+    }
     await supabase.auth.signOut();
     const { error } = await signIn(demo.email, demo.password);
     if (error) {
@@ -35,9 +39,9 @@ export default function DemoAccountsPage() {
         description: error.message,
         variant: 'destructive',
       });
+      sessionStorage.removeItem('bd_admin_return_email');
       setLoading(null);
     }
-    // On success, auth state change will redirect to dashboard
   }
 
   return (

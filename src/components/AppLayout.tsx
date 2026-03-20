@@ -1,7 +1,11 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Home, Wrench, BookOpen, Gamepad2, User, BarChart3 } from 'lucide-react';
+import { Home, Wrench, BookOpen, Gamepad2, User, BarChart3, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useEngagement } from '@/hooks/useEngagement';
+import { supabase } from '@/integrations/supabase/client';
+import { useEffect, useState } from 'react';
+
+const DEMO_EMAIL_PATTERN = /^demo-.*@behaviordecoded\.app$/;
 
 const navItems = [
   { to: '/', label: 'Home', icon: Home },
@@ -14,6 +18,22 @@ const navItems = [
 export function AppLayout({ children }: { children: React.ReactNode }) {
   useEngagement();
   const navigate = useNavigate();
+  const [demoSession, setDemoSession] = useState(false);
+  const [returning, setReturning] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setDemoSession(!!(user?.email && DEMO_EMAIL_PATTERN.test(user.email)));
+    });
+  }, []);
+
+  async function handleReturnToAdmin() {
+    setReturning(true);
+    sessionStorage.removeItem('bd_admin_return_email');
+    await supabase.auth.signOut();
+    navigate('/login');
+  }
+
   return (
     <div className="min-h-screen min-h-[100dvh] bg-background pb-20 overflow-x-hidden">
       {/* Top Bar */}
