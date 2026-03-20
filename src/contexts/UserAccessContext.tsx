@@ -64,6 +64,7 @@ export function useUserAccess() {
 // ─── Provider ────────────────────────────────────────────
 
 const INDEPENDENT_KEY = 'bd_independent_mode';
+const DEMO_EMAIL_PATTERN = /^demo-.*@behaviordecoded\.app$/;
 
 export function UserAccessProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<UserAccessData | null>(null);
