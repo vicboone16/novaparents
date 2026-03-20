@@ -128,7 +128,9 @@ export function UserAccessProvider({ children }: { children: ReactNode }) {
 
       if (!accessData.hasAccess) {
         const savedIndependent = localStorage.getItem(INDEPENDENT_KEY);
-        if (savedIndependent === result.user_id) {
+        const isDemoUser = DEMO_EMAIL_PATTERN.test(accessData.email);
+        if (savedIndependent === result.user_id || isDemoUser) {
+          if (isDemoUser) localStorage.setItem(INDEPENDENT_KEY, result.user_id);
           accessData.isIndependent = true;
           accessData.hasAccess = true;
           setData(accessData);
