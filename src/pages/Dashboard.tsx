@@ -78,6 +78,7 @@ function getRecentInsight(): string {
 
 export default function Dashboard() {
   const { data: accessData } = useUserAccess();
+  const { isAdmin } = useUserRole();
   const [userName, setUserName] = useState('');
   const [userId, setUserId] = useState('');
   const [snapshots, setSnapshots] = useState<WeeklySnapshot[]>([]);
