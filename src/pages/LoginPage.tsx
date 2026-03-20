@@ -149,6 +149,32 @@ export default function LoginPage() {
               )}
             </div>
 
+            {/* Demo Quick Login */}
+            <div className="border-t border-border pt-4 space-y-2">
+              <p className="text-xs text-muted-foreground text-center font-medium uppercase tracking-wide">Try a Demo Account</p>
+              <div className="grid gap-2">
+                {DEMO_ACCOUNTS.map((demo) => (
+                  <button
+                    key={demo.email}
+                    type="button"
+                    disabled={loading}
+                    onClick={async () => {
+                      setLoading(true);
+                      setError('');
+                      const { error } = await signIn(demo.email, demo.password);
+                      if (error) setError(`Demo login failed: ${error.message}. Try seeding demo users first.`);
+                      setLoading(false);
+                    }}
+                    className="flex items-center gap-2 rounded-xl border border-accent/30 bg-accent/5 px-4 py-2.5 text-sm font-medium text-foreground hover:bg-accent/10 transition-colors text-left"
+                  >
+                    <Play className="h-3.5 w-3.5 text-primary shrink-0" />
+                    <span>{demo.name}</span>
+                    <span className="text-muted-foreground text-xs ml-auto">({demo.learner}'s parent)</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Redeem code CTA */}
             <div className="border-t border-border pt-4">
               <button
