@@ -27,6 +27,7 @@ import AcademyAdminPage from "@/pages/AcademyAdminPage";
 import BehaviorLabAdminPage from "@/pages/BehaviorLabAdminPage";
 import InsightsPage from "@/pages/InsightsPage";
 import SnapshotBuilderPage from "@/pages/SnapshotBuilderPage";
+import DemoAccountsPage from "@/pages/DemoAccountsPage";
 import NotFound from "./pages/NotFound";
 import { CoachBotFAB } from "./components/CoachBot";
 
@@ -118,6 +119,7 @@ function AppContent() {
           <Route path="/audit" element={<AuditDashboardPage />} />
           <Route path="/admin/academy" element={<ProtectedRoute><AcademyAdminPage /></ProtectedRoute>} />
           <Route path="/admin/behavior-lab" element={<ProtectedRoute><BehaviorLabAdminPage /></ProtectedRoute>} />
+          <Route path="/admin/demo-accounts" element={<ProtectedRoute><DemoAccountsPage /></ProtectedRoute>} />
           <Route path="/learn" element={<Navigate to="/toolkit" replace />} />
           <Route path="/library" element={<Navigate to="/toolkit" replace />} />
           <Route path="/login" element={<Navigate to="/" replace />} />
