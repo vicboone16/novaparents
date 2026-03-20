@@ -64,6 +64,7 @@ export function useUserAccess() {
 // ─── Provider ────────────────────────────────────────────
 
 const INDEPENDENT_KEY = 'bd_independent_mode';
+const DEMO_EMAIL_PATTERN = /^demo-.*@behaviordecoded\.app$/;
 
 export function UserAccessProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<UserAccessData | null>(null);
@@ -87,9 +88,12 @@ export function UserAccessProvider({ children }: { children: ReactNode }) {
       });
 
       if (result?.error === 'user_not_provisioned') {
+        const userEmail = user.email ?? '';
+        const isDemoUser = DEMO_EMAIL_PATTERN.test(userEmail);
         const savedIndependent = localStorage.getItem(INDEPENDENT_KEY);
-        if (savedIndependent === user.id) {
-          setData(buildIndependentData(user.id, user.email ?? ''));
+        if (savedIndependent === user.id || isDemoUser) {
+          if (isDemoUser) localStorage.setItem(INDEPENDENT_KEY, user.id);
+          setData(buildIndependentData(user.id, userEmail));
           setStatus('authenticated');
           return;
         }
@@ -124,7 +128,9 @@ export function UserAccessProvider({ children }: { children: ReactNode }) {
 
       if (!accessData.hasAccess) {
         const savedIndependent = localStorage.getItem(INDEPENDENT_KEY);
-        if (savedIndependent === result.user_id) {
+        const isDemoUser = DEMO_EMAIL_PATTERN.test(accessData.email);
+        if (savedIndependent === result.user_id || isDemoUser) {
+          if (isDemoUser) localStorage.setItem(INDEPENDENT_KEY, result.user_id);
           accessData.isIndependent = true;
           accessData.hasAccess = true;
           setData(accessData);
