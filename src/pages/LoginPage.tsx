@@ -3,7 +3,7 @@ import { signIn, resetPassword } from '@/lib/dal';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Heart, Loader2, Ticket, Play } from 'lucide-react';
+import { Heart, Loader2, Ticket } from 'lucide-react';
 import { RedeemCodeForm } from '@/components/RedeemCodeForm';
 import { useNavigate } from 'react-router-dom';
 
