@@ -88,9 +88,12 @@ export function UserAccessProvider({ children }: { children: ReactNode }) {
       });
 
       if (result?.error === 'user_not_provisioned') {
+        const userEmail = user.email ?? '';
+        const isDemoUser = DEMO_EMAIL_PATTERN.test(userEmail);
         const savedIndependent = localStorage.getItem(INDEPENDENT_KEY);
-        if (savedIndependent === user.id) {
-          setData(buildIndependentData(user.id, user.email ?? ''));
+        if (savedIndependent === user.id || isDemoUser) {
+          if (isDemoUser) localStorage.setItem(INDEPENDENT_KEY, user.id);
+          setData(buildIndependentData(user.id, userEmail));
           setStatus('authenticated');
           return;
         }
