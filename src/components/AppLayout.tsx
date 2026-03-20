@@ -1,7 +1,11 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Home, Wrench, BookOpen, Gamepad2, User, BarChart3 } from 'lucide-react';
+import { Home, Wrench, BookOpen, Gamepad2, User, BarChart3, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useEngagement } from '@/hooks/useEngagement';
+import { supabase } from '@/integrations/supabase/client';
+import { useEffect, useState } from 'react';
+
+const DEMO_EMAIL_PATTERN = /^demo-.*@behaviordecoded\.app$/;
 
 const navItems = [
   { to: '/', label: 'Home', icon: Home },
@@ -14,6 +18,22 @@ const navItems = [
 export function AppLayout({ children }: { children: React.ReactNode }) {
   useEngagement();
   const navigate = useNavigate();
+  const [demoSession, setDemoSession] = useState(false);
+  const [returning, setReturning] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setDemoSession(!!(user?.email && DEMO_EMAIL_PATTERN.test(user.email)));
+    });
+  }, []);
+
+  async function handleReturnToAdmin() {
+    setReturning(true);
+    sessionStorage.removeItem('bd_admin_return_email');
+    await supabase.auth.signOut();
+    navigate('/login');
+  }
+
   return (
     <div className="min-h-screen min-h-[100dvh] bg-background pb-20 overflow-x-hidden">
       {/* Top Bar */}
@@ -36,6 +56,23 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </button>
         </div>
       </header>
+
+      {/* Demo session banner */}
+      {demoSession && (
+        <div className="sticky top-14 z-40 border-b border-warning/30 bg-warning/10 px-4 py-2 flex items-center justify-between gap-2">
+          <p className="text-xs font-medium text-foreground truncate">
+            <span className="font-semibold">Demo mode</span> — viewing as a caregiver
+          </p>
+          <button
+            onClick={handleReturnToAdmin}
+            disabled={returning}
+            className="flex items-center gap-1.5 rounded-lg bg-foreground/10 px-3 py-1 text-xs font-semibold text-foreground hover:bg-foreground/20 transition-colors shrink-0"
+          >
+            <LogOut className="h-3 w-3" />
+            {returning ? 'Signing out…' : 'Exit demo'}
+          </button>
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="container py-5 px-4 sm:px-6 animate-fade-in max-w-full overflow-x-hidden">
