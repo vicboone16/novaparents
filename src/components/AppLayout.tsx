@@ -57,6 +57,23 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
+      {/* Demo session banner */}
+      {demoSession && (
+        <div className="sticky top-14 z-40 border-b border-warning/30 bg-warning/10 px-4 py-2 flex items-center justify-between gap-2">
+          <p className="text-xs font-medium text-foreground truncate">
+            <span className="font-semibold">Demo mode</span> — viewing as a caregiver
+          </p>
+          <button
+            onClick={handleReturnToAdmin}
+            disabled={returning}
+            className="flex items-center gap-1.5 rounded-lg bg-foreground/10 px-3 py-1 text-xs font-semibold text-foreground hover:bg-foreground/20 transition-colors shrink-0"
+          >
+            <LogOut className="h-3 w-3" />
+            {returning ? 'Signing out…' : 'Exit demo'}
+          </button>
+        </div>
+      )}
+
       {/* Main Content */}
       <main className="container py-5 px-4 sm:px-6 animate-fade-in max-w-full overflow-x-hidden">
         {children}
