@@ -3,9 +3,15 @@ import { signIn, resetPassword } from '@/lib/dal';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Heart, Loader2, Ticket } from 'lucide-react';
+import { Heart, Loader2, Ticket, Play } from 'lucide-react';
 import { RedeemCodeForm } from '@/components/RedeemCodeForm';
 import { useNavigate } from 'react-router-dom';
+
+const DEMO_ACCOUNTS = [
+  { email: 'demo-maria@behaviordecoded.app', password: 'DemoParent1!', name: 'Maria Santos', learner: 'Ethan' },
+  { email: 'demo-david@behaviordecoded.app', password: 'DemoParent2!', name: 'David Chen', learner: 'Lily' },
+  { email: 'demo-aisha@behaviordecoded.app', password: 'DemoParent3!', name: 'Aisha Johnson', learner: 'Marcus' },
+];
 
 export default function LoginPage() {
   const [mode, setMode] = useState<'login' | 'signup' | 'reset' | 'redeem'>('login');
