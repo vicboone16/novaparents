@@ -5,7 +5,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { useUserAccess } from '@/contexts/UserAccessContext';
+import { useParentChild } from '@/hooks/useParentChild';
 import {
   getTodayInsight,
   getBehaviorTranslation,
@@ -30,14 +30,11 @@ function TrendLabel({ trend }: { trend: string }) {
 }
 
 export default function ParentHomePage() {
-  const { data: access } = useUserAccess();
+  const { childId, childName } = useParentChild();
   const [insight, setInsight] = useState<ParentInsight | null>(null);
   const [loading, setLoading] = useState(true);
   const [fallbackMeaning, setFallbackMeaning] = useState('');
   const [fallbackStrategies, setFallbackStrategies] = useState<string[]>([]);
-
-  const childId = access?.visibleStudentIds?.[0];
-  const childName = access?.students?.[0]?.first_name || 'your child';
 
   useEffect(() => {
     if (!childId) {

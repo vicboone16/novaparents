@@ -3,18 +3,15 @@
  */
 
 import { useEffect, useState } from 'react';
-import { useUserAccess } from '@/contexts/UserAccessContext';
+import { useParentChild } from '@/hooks/useParentChild';
 import { getWeekInsights, type ParentInsight } from '@/lib/parent-insights-dal';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { TrendingUp } from 'lucide-react';
 
 export default function ParentProgressPage() {
-  const { data: access } = useUserAccess();
+  const { childId, childName } = useParentChild();
   const [insights, setInsights] = useState<ParentInsight[]>([]);
   const [loading, setLoading] = useState(true);
-
-  const childId = access?.visibleStudentIds?.[0];
-  const childName = access?.students?.[0]?.first_name || 'your child';
 
   useEffect(() => {
     if (!childId) { setLoading(false); return; }
