@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
+import { ParentLayout } from "@/components/ParentLayout";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { BackendGuardScreen } from "@/components/BackendGuardScreen";
 import { UserAccessProvider, useUserAccess } from "@/contexts/UserAccessContext";
@@ -28,6 +29,10 @@ import BehaviorLabAdminPage from "@/pages/BehaviorLabAdminPage";
 import InsightsPage from "@/pages/InsightsPage";
 import SnapshotBuilderPage from "@/pages/SnapshotBuilderPage";
 import DemoAccountsPage from "@/pages/DemoAccountsPage";
+import ParentHomePage from "@/pages/ParentHomePage";
+import ParentProgressPage from "@/pages/ParentProgressPage";
+import ParentRewardsPage from "@/pages/ParentRewardsPage";
+import ParentMessagesPage from "@/pages/ParentMessagesPage";
 import NotFound from "./pages/NotFound";
 import { CoachBotFAB } from "./components/CoachBot";
 
@@ -103,6 +108,28 @@ function AppContent() {
     return <BackendGuardScreen message={accessError || 'Something went wrong.'} />;
   }
 
+  // Detect parent role from access context
+  const { data: accessData } = useUserAccess();
+  const isParent = accessData?.appRole === 'parent' || accessData?.appRole === 'caregiver';
+
+  // Parent users get a separate layout and routes
+  if (isParent) {
+    return (
+      <ParentLayout>
+        <Routes>
+          <Route path="/" element={<Navigate to="/parent" replace />} />
+          <Route path="/parent" element={<ParentHomePage />} />
+          <Route path="/parent/progress" element={<ParentProgressPage />} />
+          <Route path="/parent/rewards" element={<ParentRewardsPage />} />
+          <Route path="/parent/messages" element={<ParentMessagesPage />} />
+          <Route path="/parent/profile" element={<ProfilePage />} />
+          <Route path="/login" element={<Navigate to="/parent" replace />} />
+          <Route path="*" element={<Navigate to="/parent" replace />} />
+        </Routes>
+      </ParentLayout>
+    );
+  }
+
   return (
     <>
       <AppLayout>
@@ -120,6 +147,11 @@ function AppContent() {
           <Route path="/admin/academy" element={<ProtectedRoute><AcademyAdminPage /></ProtectedRoute>} />
           <Route path="/admin/behavior-lab" element={<ProtectedRoute><BehaviorLabAdminPage /></ProtectedRoute>} />
           <Route path="/admin/demo-accounts" element={<ProtectedRoute><DemoAccountsPage /></ProtectedRoute>} />
+          {/* Parent routes also accessible to admins */}
+          <Route path="/parent" element={<ParentHomePage />} />
+          <Route path="/parent/progress" element={<ParentProgressPage />} />
+          <Route path="/parent/rewards" element={<ParentRewardsPage />} />
+          <Route path="/parent/messages" element={<ParentMessagesPage />} />
           <Route path="/learn" element={<Navigate to="/toolkit" replace />} />
           <Route path="/library" element={<Navigate to="/toolkit" replace />} />
           <Route path="/login" element={<Navigate to="/" replace />} />
