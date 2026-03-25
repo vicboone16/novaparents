@@ -176,6 +176,6 @@ export async function getBehaviorTranslation(functionKey: string): Promise<{ mea
 
   return FALLBACK_TRANSLATIONS[functionKey] || {
     meaning: 'Your child is building new skills every day.',
-    strategies: ['Keep doing what you're doing — consistency matters!'],
+    strategies: ['Keep doing what you are doing — consistency matters!'],
   };
 }
