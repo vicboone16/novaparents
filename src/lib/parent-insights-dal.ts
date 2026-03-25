@@ -56,7 +56,7 @@ const FALLBACK_TRANSLATIONS: Record<string, { meaning: string; strategies: strin
     strategies: [
       'Offer a short break before asking again',
       'Use a visual timer to show how long the task will take',
-      'Praise your child when they try, even if they don't finish',
+      'Praise your child when they try, even if they do not finish',
       'Break big tasks into smaller, manageable steps',
     ],
   },
