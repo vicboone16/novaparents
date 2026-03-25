@@ -109,8 +109,8 @@ function AppContent() {
   }
 
   // Detect parent role from access context
+  const { data: accessData } = useUserAccess();
   const isParent = accessData?.appRole === 'parent' || accessData?.appRole === 'caregiver';
-  const accessData = useUserAccess().data;
 
   // Parent users get a separate layout and routes
   if (isParent) {
