@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AppLayout } from "@/components/AppLayout";
+import { ParentLayout } from "@/components/ParentLayout";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { BackendGuardScreen } from "@/components/BackendGuardScreen";
 import { UserAccessProvider, useUserAccess } from "@/contexts/UserAccessContext";
@@ -28,6 +29,10 @@ import BehaviorLabAdminPage from "@/pages/BehaviorLabAdminPage";
 import InsightsPage from "@/pages/InsightsPage";
 import SnapshotBuilderPage from "@/pages/SnapshotBuilderPage";
 import DemoAccountsPage from "@/pages/DemoAccountsPage";
+import ParentHomePage from "@/pages/ParentHomePage";
+import ParentProgressPage from "@/pages/ParentProgressPage";
+import ParentRewardsPage from "@/pages/ParentRewardsPage";
+import ParentMessagesPage from "@/pages/ParentMessagesPage";
 import NotFound from "./pages/NotFound";
 import { CoachBotFAB } from "./components/CoachBot";
 
