@@ -29,6 +29,7 @@ import BehaviorLabAdminPage from "@/pages/BehaviorLabAdminPage";
 import InsightsPage from "@/pages/InsightsPage";
 import SnapshotBuilderPage from "@/pages/SnapshotBuilderPage";
 import DemoAccountsPage from "@/pages/DemoAccountsPage";
+import ParentPreviewPage from "@/pages/ParentPreviewPage";
 import ParentHomePage from "@/pages/ParentHomePage";
 import ParentProgressPage from "@/pages/ParentProgressPage";
 import ParentRewardsPage from "@/pages/ParentRewardsPage";
