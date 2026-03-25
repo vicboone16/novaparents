@@ -31,6 +31,10 @@ function TrendLabel({ trend }: { trend: string }) {
 
 export default function ParentHomePage() {
   const { childId, childName } = useParentChild();
+  const [insight, setInsight] = useState<ParentInsight | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [fallbackMeaning, setFallbackMeaning] = useState('');
+  const [fallbackStrategies, setFallbackStrategies] = useState<string[]>([]);
 
   useEffect(() => {
     if (!childId) {
