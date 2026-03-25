@@ -108,6 +108,28 @@ function AppContent() {
     return <BackendGuardScreen message={accessError || 'Something went wrong.'} />;
   }
 
+  // Detect parent role from access context
+  const isParent = accessData?.appRole === 'parent' || accessData?.appRole === 'caregiver';
+  const accessData = useUserAccess().data;
+
+  // Parent users get a separate layout and routes
+  if (isParent) {
+    return (
+      <ParentLayout>
+        <Routes>
+          <Route path="/" element={<Navigate to="/parent" replace />} />
+          <Route path="/parent" element={<ParentHomePage />} />
+          <Route path="/parent/progress" element={<ParentProgressPage />} />
+          <Route path="/parent/rewards" element={<ParentRewardsPage />} />
+          <Route path="/parent/messages" element={<ParentMessagesPage />} />
+          <Route path="/parent/profile" element={<ProfilePage />} />
+          <Route path="/login" element={<Navigate to="/parent" replace />} />
+          <Route path="*" element={<Navigate to="/parent" replace />} />
+        </Routes>
+      </ParentLayout>
+    );
+  }
+
   return (
     <>
       <AppLayout>
@@ -125,6 +147,11 @@ function AppContent() {
           <Route path="/admin/academy" element={<ProtectedRoute><AcademyAdminPage /></ProtectedRoute>} />
           <Route path="/admin/behavior-lab" element={<ProtectedRoute><BehaviorLabAdminPage /></ProtectedRoute>} />
           <Route path="/admin/demo-accounts" element={<ProtectedRoute><DemoAccountsPage /></ProtectedRoute>} />
+          {/* Parent routes also accessible to admins */}
+          <Route path="/parent" element={<ParentHomePage />} />
+          <Route path="/parent/progress" element={<ParentProgressPage />} />
+          <Route path="/parent/rewards" element={<ParentRewardsPage />} />
+          <Route path="/parent/messages" element={<ParentMessagesPage />} />
           <Route path="/learn" element={<Navigate to="/toolkit" replace />} />
           <Route path="/library" element={<Navigate to="/toolkit" replace />} />
           <Route path="/login" element={<Navigate to="/" replace />} />
