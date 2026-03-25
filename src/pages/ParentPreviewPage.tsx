@@ -1,16 +1,18 @@
 /**
- * Admin Parent Preview — renders the parent interface inside ParentLayout
- * without requiring an account switch. Uses a mock child for demo purposes.
+ * Admin Parent Preview — renders the parent interface inside a phone frame
+ * without requiring an account switch. Includes a seed button for demo data.
  */
 
 import { useState } from 'react';
-import { ParentLayout } from '@/components/ParentLayout';
 import ParentHomePage from '@/pages/ParentHomePage';
 import ParentProgressPage from '@/pages/ParentProgressPage';
 import ParentRewardsPage from '@/pages/ParentRewardsPage';
 import ParentMessagesPage from '@/pages/ParentMessagesPage';
-import { ArrowLeft, Eye } from 'lucide-react';
+import { seedDemoParentInsights } from '@/lib/parent-insights-dal';
+import { ArrowLeft, Eye, Database, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '@/hooks/use-toast';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 const TABS = [
@@ -24,7 +26,20 @@ type TabKey = typeof TABS[number]['key'];
 
 export default function ParentPreviewPage() {
   const [tab, setTab] = useState<TabKey>('home');
+  const [seeding, setSeeding] = useState(false);
   const navigate = useNavigate();
+  const { toast } = useToast();
+
+  async function handleSeed() {
+    setSeeding(true);
+    const result = await seedDemoParentInsights();
+    if (result.error) {
+      toast({ title: 'Seed failed', description: result.error, variant: 'destructive' });
+    } else {
+      toast({ title: 'Demo data seeded', description: `${result.inserted} days of parent insights created.` });
+    }
+    setSeeding(false);
+  }
 
   return (
     <div className="space-y-4 animate-fade-in">
@@ -36,13 +51,17 @@ export default function ParentPreviewPage() {
         >
           <ArrowLeft className="h-4 w-4" />
         </button>
-        <div>
+        <div className="flex-1">
           <h1 className="font-display text-xl font-bold text-foreground flex items-center gap-2">
             <Eye className="h-5 w-5 text-primary" />
             Parent View Preview
           </h1>
           <p className="text-sm text-muted-foreground">See what parents experience — no account switch needed</p>
         </div>
+        <Button variant="outline" size="sm" onClick={handleSeed} disabled={seeding} className="gap-1.5">
+          {seeding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Database className="h-3.5 w-3.5" />}
+          Seed Demo Data
+        </Button>
       </div>
 
       {/* Tab switcher */}
