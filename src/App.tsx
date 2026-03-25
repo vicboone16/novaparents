@@ -148,6 +148,7 @@ function AppContent() {
           <Route path="/admin/academy" element={<ProtectedRoute><AcademyAdminPage /></ProtectedRoute>} />
           <Route path="/admin/behavior-lab" element={<ProtectedRoute><BehaviorLabAdminPage /></ProtectedRoute>} />
           <Route path="/admin/demo-accounts" element={<ProtectedRoute><DemoAccountsPage /></ProtectedRoute>} />
+          <Route path="/admin/parent-preview" element={<ProtectedRoute><ParentPreviewPage /></ProtectedRoute>} />
           {/* Parent routes also accessible to admins */}
           <Route path="/parent" element={<ParentHomePage />} />
           <Route path="/parent/progress" element={<ParentProgressPage />} />
