@@ -3,7 +3,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { useUserAccess } from '@/contexts/UserAccessContext';
+import { useParentChild } from '@/hooks/useParentChild';
 import { getWeekInsights, type ParentInsight } from '@/lib/parent-insights-dal';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { TrendingUp } from 'lucide-react';

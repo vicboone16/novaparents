@@ -5,7 +5,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { useUserAccess } from '@/contexts/UserAccessContext';
+import { useParentChild } from '@/hooks/useParentChild';
 import {
   getTodayInsight,
   getBehaviorTranslation,
