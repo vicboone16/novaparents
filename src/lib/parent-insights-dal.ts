@@ -179,3 +179,60 @@ export async function getBehaviorTranslation(functionKey: string): Promise<{ mea
     strategies: ['Keep doing what you are doing — consistency matters!'],
   };
 }
+
+// ─── Seed demo data ─────────────────────────────────────
+
+export async function seedDemoParentInsights(): Promise<{ inserted: number; error?: string }> {
+  const today = new Date();
+  const rows: Record<string, unknown>[] = [];
+
+  // Generate 7 days of insights for a demo student ID
+  // We use a fixed UUID that matches demo data conventions
+  const demoStudentId = '00000000-0000-0000-0000-000000000001';
+
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const dateStr = d.toISOString().split('T')[0];
+    const dayOfWeek = d.getDay();
+    const points = Math.round(8 + Math.random() * 12);
+    const behaviors: BehaviorSummaryItem[] = [
+      { label: 'Following directions', trend: i < 3 ? 'improving' : 'stable' },
+      { label: 'Staying on task', trend: i < 2 ? 'improving' : i > 4 ? 'worsening' : 'stable' },
+      { label: 'Using kind words', trend: 'improving' },
+    ];
+
+    const headlines = [
+      `Great start to the week — ${points} points earned! 🌟`,
+      `Solid effort today — ${points} points! 💪`,
+      `${points} points earned today! Keep it up! 🎉`,
+      `A wonderful day — ${points} points! ⭐`,
+      `Strong finish — ${points} points today! 🌈`,
+      `Nice progress — ${points} points! 🌻`,
+      `Another great day — ${points} points! ✨`,
+    ];
+
+    rows.push({
+      student_id: demoStudentId,
+      insight_date: dateStr,
+      headline: headlines[dayOfWeek % headlines.length],
+      points_earned: points,
+      behavior_summary: behaviors,
+      what_this_means: FALLBACK_TRANSLATIONS.escape.meaning,
+      what_you_can_do: FALLBACK_TRANSLATIONS.escape.strategies,
+      teacher_note: i === 0 ? 'Had a wonderful day today! Very proud of the progress.' : null,
+    });
+  }
+
+  try {
+    await proxyQuery({
+      table: 'parent_insights',
+      operation: 'upsert',
+      data: rows,
+      on_conflict: 'student_id,insight_date',
+    });
+    return { inserted: rows.length };
+  } catch (err: any) {
+    return { inserted: 0, error: err.message };
+  }
+}
