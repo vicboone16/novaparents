@@ -13,13 +13,10 @@ import {
 import { Gift, Star, ShoppingBag } from 'lucide-react';
 
 export default function ParentRewardsPage() {
-  const { data: access } = useUserAccess();
+  const { childId, childName } = useParentChild();
   const [summary, setSummary] = useState<RewardSummary | null>(null);
   const [rewards, setRewards] = useState<BeaconReward[]>([]);
   const [loading, setLoading] = useState(true);
-
-  const childId = access?.visibleStudentIds?.[0];
-  const childName = access?.students?.[0]?.first_name || 'your child';
 
   useEffect(() => {
     if (!childId) { setLoading(false); return; }

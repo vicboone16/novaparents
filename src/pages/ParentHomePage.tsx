@@ -30,14 +30,7 @@ function TrendLabel({ trend }: { trend: string }) {
 }
 
 export default function ParentHomePage() {
-  const { data: access } = useUserAccess();
-  const [insight, setInsight] = useState<ParentInsight | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [fallbackMeaning, setFallbackMeaning] = useState('');
-  const [fallbackStrategies, setFallbackStrategies] = useState<string[]>([]);
-
-  const childId = access?.visibleStudentIds?.[0];
-  const childName = access?.students?.[0]?.first_name || 'your child';
+  const { childId, childName } = useParentChild();
 
   useEffect(() => {
     if (!childId) {
