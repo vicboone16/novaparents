@@ -36,12 +36,13 @@ import ParentRewardsPage from "@/pages/ParentRewardsPage";
 import ParentMessagesPage from "@/pages/ParentMessagesPage";
 import NotFound from "./pages/NotFound";
 import { CoachBotFAB } from "./components/CoachBot";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 const queryClient = new QueryClient();
 
 function AppContent() {
   const { status: handshakeStatus, errorMessage: handshakeError } = useBackendGuard();
-  const { status: accessStatus, error: accessError, refresh, continueAsIndependent } = useUserAccess();
+  const { status: accessStatus, error: accessError, refresh, continueAsIndependent, data: accessData } = useUserAccess();
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
 
@@ -109,8 +110,7 @@ function AppContent() {
     return <BackendGuardScreen message={accessError || 'Something went wrong.'} />;
   }
 
-  // Detect parent role from access context
-  const { data: accessData } = useUserAccess();
+  // Detect parent role from access context (data sourced from top-of-component useUserAccess call)
   const isParent = accessData?.appRole === 'parent' || accessData?.appRole === 'caregiver';
 
   // Parent users get a separate layout and routes
@@ -144,7 +144,7 @@ function AppContent() {
           <Route path="/insights/new" element={<SnapshotBuilderPage />} />
           <Route path="/progress" element={<ProgressPage />} />
           <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/audit" element={<AuditDashboardPage />} />
+          <Route path="/audit" element={<ProtectedRoute><AuditDashboardPage /></ProtectedRoute>} />
           <Route path="/admin/academy" element={<ProtectedRoute><AcademyAdminPage /></ProtectedRoute>} />
           <Route path="/admin/behavior-lab" element={<ProtectedRoute><BehaviorLabAdminPage /></ProtectedRoute>} />
           <Route path="/admin/demo-accounts" element={<ProtectedRoute><DemoAccountsPage /></ProtectedRoute>} />
@@ -166,17 +166,21 @@ function AppContent() {
 }
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <UserAccessProvider>
-          <AppContent />
-        </UserAccessProvider>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+  <ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <UserAccessProvider>
+            <ErrorBoundary>
+              <AppContent />
+            </ErrorBoundary>
+          </UserAccessProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;

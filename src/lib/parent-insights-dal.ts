@@ -143,11 +143,19 @@ export async function getRewardSummary(studentId: string): Promise<RewardSummary
 }
 
 export async function getAvailableRewards(studentId: string): Promise<BeaconReward[]> {
+  if (!studentId) return [];
   try {
+    // Rewards must be scoped to the student's organisation via the
+    // v_beacon_student_available_rewards view which joins on student_id.
+    // Falling back to the raw beacon_rewards table would expose every
+    // agency's rewards to every parent — a cross-org data leak.
     const data = await proxyQuery({
-      table: 'beacon_rewards',
+      table: 'v_beacon_student_available_rewards',
       operation: 'select',
-      eq_filters: [{ col: 'is_active', val: true }],
+      eq_filters: [
+        { col: 'student_id', val: studentId },
+        { col: 'is_active', val: true },
+      ],
       order: [{ col: 'point_cost', ascending: true }],
       limit: 20,
     });

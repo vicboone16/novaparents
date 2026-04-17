@@ -1,5 +1,27 @@
 /**
  * Weekly Snapshots Data Layer — via Nova Core through novatrack-proxy.
+ *
+ * TABLE / VIEW CONTRACT (Nova Core schema):
+ * ─────────────────────────────────────────
+ * WRITES → coach_evidence_packets  (base table, writable)
+ * READS  → weekly_snapshots        (Postgres VIEW over coach_evidence_packets)
+ *
+ * The view adds computed/joined columns (e.g. integrity_score, active_seconds,
+ * caregiver fields) and may alias student_id ↔ client_id across the join.
+ * Both fetchSnapshots() and updateSnapshot() must therefore use the table
+ * name that matches their direction:
+ *   • proxyQuery insert/update  →  table: 'coach_evidence_packets'
+ *   • proxyQuery select         →  table: 'weekly_snapshots'
+ *
+ * If a newly created snapshot does not appear in the list, the most likely
+ * cause is that the view definition changed on Nova Core.  The createSnapshot()
+ * function performs a post-write read-back against weekly_snapshots to surface
+ * this failure fast.
+ *
+ * COLUMN NAMING NOTE:
+ * Nova Core uses `client_id` in coach_evidence_packets and the view surfaces
+ * both `student_id` and `client_id` for compatibility.  mapViewRow() accepts
+ * both names; if Nova Core normalises to a single name, remove the fallback.
  */
 
 import { supabase } from '@/integrations/supabase/client';
@@ -260,14 +282,31 @@ export async function createSnapshot(input: CreateSnapshotInput): Promise<{ succ
     if (input.agencyId) row.agency_id = input.agencyId;
     if (input.status === 'submitted') row.submitted_at = now;
 
-    const data = await proxyQuery({
+    const inserted = await proxyQuery({
       table: 'coach_evidence_packets',
       operation: 'insert',
       data: row,
       single: true,
     });
 
-    return { success: true, data: mapViewRow(data) };
+    // Read back through the view to confirm the record is visible to the list.
+    // If this returns null, the weekly_snapshots view definition on Nova Core
+    // has drifted from coach_evidence_packets and inserts will silently vanish.
+    let viewRow = inserted;
+    try {
+      const fromView = await proxyQuery({
+        table: 'weekly_snapshots',
+        operation: 'select',
+        eq_filters: [{ col: 'id', val: inserted.id }],
+        maybe_single: true,
+      });
+      if (fromView) viewRow = fromView;
+      else console.warn('[Snapshots] Post-create read-back returned null — weekly_snapshots view may not include this record. Check Nova Core schema.');
+    } catch {
+      // Read-back is diagnostic only; don't fail the create if it errors.
+    }
+
+    return { success: true, data: mapViewRow(viewRow) };
   } catch (err: any) {
     return { success: false, error: err?.message || 'Unknown error' };
   }
