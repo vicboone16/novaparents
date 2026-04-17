@@ -4,7 +4,7 @@
 
 import { useUserAccess } from '@/contexts/UserAccessContext';
 
-export type AppRole = 'super_admin' | 'agency_admin' | 'supervisor' | 'coach';
+export type AppRole = 'super_admin' | 'agency_admin' | 'supervisor' | 'coach' | 'parent' | 'caregiver';
 
 export function useUserRole() {
   const { data, status } = useUserAccess();

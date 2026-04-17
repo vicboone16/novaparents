@@ -25,6 +25,7 @@ const NOVA_CORE_ANON_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlib3FxbWtnaHdobGhobnNlZ2plIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk1NDc4ODMsImV4cCI6MjA4NTEyMzg4M30.F2RPn-0nNx6sqje7P7W2Jfz9mXAXBFNy6xzbV4vf-Fs';
 
 const GATEWAY_TIMEOUT_MS = 15_000;
+const GATEWAY_RETRY_DELAYS_MS = [1_000, 2_000]; // two retries: 1s then 2s
 
 // Maps HTTP status codes and known error strings to parent-friendly messages.
 function friendlyGatewayError(status: number, raw: string): string {
@@ -36,12 +37,17 @@ function friendlyGatewayError(status: number, raw: string): string {
   return 'Something went wrong connecting to the server. Please try again.';
 }
 
+function isRetryableStatus(status: number): boolean {
+  // Only retry server-side errors; client errors (4xx) are deterministic.
+  return status >= 500;
+}
+
 async function getAuthToken(): Promise<string | null> {
   const { data: { session } } = await supabase.auth.getSession();
   return session?.access_token ?? null;
 }
 
-async function callGateway(body: Record<string, unknown>): Promise<any> {
+async function attemptGateway(body: Record<string, unknown>): Promise<any> {
   const token = await getAuthToken();
 
   const controller = new AbortController();
@@ -65,7 +71,9 @@ async function callGateway(body: Record<string, unknown>): Promise<any> {
 
     if (!res.ok) {
       const text = await res.text();
-      throw new Error(friendlyGatewayError(res.status, text));
+      const err = new Error(friendlyGatewayError(res.status, text)) as Error & { status?: number };
+      err.status = res.status;
+      throw err;
     }
 
     return res.json();
@@ -77,6 +85,29 @@ async function callGateway(body: Record<string, unknown>): Promise<any> {
   } finally {
     clearTimeout(timeoutId);
   }
+}
+
+async function callGateway(body: Record<string, unknown>): Promise<any> {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= GATEWAY_RETRY_DELAYS_MS.length; attempt++) {
+    try {
+      return await attemptGateway(body);
+    } catch (err: any) {
+      lastError = err;
+
+      // Don't retry timeouts, auth errors, or deterministic client errors.
+      const isTimeout = err?.message?.includes('timed out');
+      const isClientError = err?.status != null && !isRetryableStatus(err.status);
+      const isLastAttempt = attempt === GATEWAY_RETRY_DELAYS_MS.length;
+
+      if (isTimeout || isClientError || isLastAttempt) break;
+
+      await new Promise(r => setTimeout(r, GATEWAY_RETRY_DELAYS_MS[attempt]));
+    }
+  }
+
+  throw lastError;
 }
 
 // ─── Public helpers (same API surface as before) ────────
@@ -235,6 +266,7 @@ export interface BehaviorLogEntry {
 }
 
 const LOG_STORAGE_KEY = 'bd_behavior_logs';
+const LOG_SYNCED_KEY = 'bd_behavior_logs_synced';
 
 export function getBehaviorLogs(): BehaviorLogEntry[] {
   try {
@@ -254,6 +286,61 @@ export function saveBehaviorLog(entry: Omit<BehaviorLogEntry, 'id' | 'createdAt'
   logs.unshift(newEntry);
   localStorage.setItem(LOG_STORAGE_KEY, JSON.stringify(logs));
   return newEntry;
+}
+
+// ─── Behavior Log Cloud Sync ─────────────────────────────
+// Local-first: every log is written to localStorage immediately.
+// This function attempts to push un-synced logs to Nova Core's abc_logs table.
+// Call on app startup and after saving a new log (fire-and-forget).
+// If the table does not exist yet, fails silently and retries next call.
+
+function loadSyncedLogIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem(LOG_SYNCED_KEY);
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch { return new Set(); }
+}
+
+function markLogsSynced(ids: string[]) {
+  try {
+    const existing = loadSyncedLogIds();
+    ids.forEach(id => existing.add(id));
+    localStorage.setItem(LOG_SYNCED_KEY, JSON.stringify(Array.from(existing).slice(-2000)));
+  } catch { /* storage full — continue */ }
+}
+
+export async function syncBehaviorLogs(userId: string): Promise<void> {
+  const logs = getBehaviorLogs();
+  const synced = loadSyncedLogIds();
+  const pending = logs.filter(l => !synced.has(l.id));
+  if (pending.length === 0) return;
+
+  const rows = pending.map(l => ({
+    id: l.id,
+    user_id: userId,
+    date: l.date,
+    time: l.time || null,
+    setting: l.setting || null,
+    antecedent: l.antecedent || null,
+    behavior: l.behavior,
+    consequence: l.consequence || null,
+    intensity: l.intensity ?? null,
+    notes: l.notes || null,
+    created_at: l.createdAt,
+  }));
+
+  try {
+    await proxyQuery({
+      table: 'abc_logs',
+      operation: 'upsert',
+      data: rows,
+      on_conflict: 'id',
+    });
+    markLogsSynced(pending.map(l => l.id));
+  } catch {
+    // Table not yet provisioned on Nova Core — fail silently.
+    // Logs remain in localStorage; sync will succeed once table is ready.
+  }
 }
 
 // ─── Curriculum Progress (local-first for Phase 1) ───────

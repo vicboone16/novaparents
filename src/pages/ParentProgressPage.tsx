@@ -2,9 +2,10 @@
  * Parent Progress — Weekly points graph
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParentChild } from '@/hooks/useParentChild';
 import { getWeekInsights, type ParentInsight } from '@/lib/parent-insights-dal';
+import { usePageFocusRefresh } from '@/hooks/usePageFocusRefresh';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { TrendingUp } from 'lucide-react';
 
@@ -13,13 +14,16 @@ export default function ParentProgressPage() {
   const [insights, setInsights] = useState<ParentInsight[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     if (!childId) { setLoading(false); return; }
     getWeekInsights(childId, 7).then((data) => {
       setInsights(data);
       setLoading(false);
     });
   }, [childId]);
+
+  useEffect(() => { load(); }, [load]);
+  usePageFocusRefresh(load);
 
   const chartData = (() => {
     const days: { label: string; points: number }[] = [];

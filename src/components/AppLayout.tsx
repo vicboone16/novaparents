@@ -2,6 +2,8 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { Home, Wrench, BookOpen, Gamepad2, User, BarChart3, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useEngagement } from '@/hooks/useEngagement';
+import { useInactivityLock } from '@/hooks/useInactivityLock';
+import { InactivityLockOverlay } from '@/components/InactivityLockOverlay';
 import { supabase } from '@/integrations/supabase/client';
 import { useEffect, useState } from 'react';
 
@@ -18,6 +20,7 @@ const navItems = [
 export function AppLayout({ children }: { children: React.ReactNode }) {
   useEngagement();
   const navigate = useNavigate();
+  const { locked, unlock } = useInactivityLock();
   const [demoSession, setDemoSession] = useState(false);
   const [returning, setReturning] = useState(false);
 
@@ -36,6 +39,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen min-h-[100dvh] bg-background pb-20 overflow-x-hidden">
+      {locked && <InactivityLockOverlay onContinue={unlock} />}
       {/* Top Bar */}
       <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-md safe-area-top">
         <div className="container flex h-14 items-center gap-3 px-4 sm:px-6">

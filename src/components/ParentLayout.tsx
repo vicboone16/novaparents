@@ -3,6 +3,8 @@ import { Home, TrendingUp, Gift, MessageCircle, User, ChevronDown } from 'lucide
 import { cn } from '@/lib/utils';
 import { ActiveChildProvider, useActiveChild } from '@/contexts/ActiveChildContext';
 import { useUserAccess } from '@/contexts/UserAccessContext';
+import { useInactivityLock } from '@/hooks/useInactivityLock';
+import { InactivityLockOverlay } from '@/components/InactivityLockOverlay';
 
 const parentNav = [
   { to: '/parent', label: 'Home', icon: Home, soon: false },
@@ -46,9 +48,11 @@ function ChildSelectorHeader() {
 
 function ParentLayoutInner({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
+  const { locked, unlock } = useInactivityLock();
 
   return (
     <div className="min-h-screen min-h-[100dvh] bg-background pb-20 overflow-x-hidden">
+      {locked && <InactivityLockOverlay onContinue={unlock} />}
       {/* Top Bar */}
       <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-md safe-area-top">
         <div className="container flex h-14 items-center gap-3 px-4 sm:px-6">

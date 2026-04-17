@@ -18,12 +18,32 @@ export default function LoginPage() {
   const [success, setSuccess] = useState('');
   const navigate = useNavigate();
 
+  function friendlyAuthError(message: string): string {
+    const m = message.toLowerCase();
+    if (m.includes('invalid login credentials') || m.includes('invalid credentials')) {
+      return 'Incorrect email or password. Please try again.';
+    }
+    if (m.includes('email not confirmed')) {
+      return 'Please check your email and confirm your account before signing in.';
+    }
+    if (m.includes('user already registered') || m.includes('already exists')) {
+      return 'An account with this email already exists. Try signing in instead.';
+    }
+    if (m.includes('too many requests') || m.includes('rate limit')) {
+      return 'Too many attempts. Please wait a moment and try again.';
+    }
+    if (m.includes('invalid format') || m.includes('unable to validate email')) {
+      return 'Please enter a valid email address.';
+    }
+    return 'Something went wrong. Please try again.';
+  }
+
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError('');
     const { error } = await signIn(email, password);
-    if (error) setError(error.message);
+    if (error) setError(friendlyAuthError(error.message));
     setLoading(false);
   }
 
@@ -47,7 +67,7 @@ export default function LoginPage() {
       options: { emailRedirectTo: window.location.origin },
     });
     if (error) {
-      setError(error.message);
+      setError(friendlyAuthError(error.message));
     } else {
       setSuccess('Check your email to confirm your account, then sign in.');
     }
@@ -59,7 +79,7 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
     const { error } = await resetPassword(email);
-    if (error) setError(error.message);
+    if (error) setError(friendlyAuthError(error.message));
     else setSuccess('Check your email for a reset link.');
     setLoading(false);
   }

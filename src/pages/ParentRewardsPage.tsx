@@ -2,8 +2,9 @@
  * Parent Rewards — Balance, earned/spent, available rewards
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParentChild } from '@/hooks/useParentChild';
+import { usePageFocusRefresh } from '@/hooks/usePageFocusRefresh';
 import {
   getRewardSummary,
   getAvailableRewards,
@@ -18,7 +19,7 @@ export default function ParentRewardsPage() {
   const [rewards, setRewards] = useState<BeaconReward[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     if (!childId) { setLoading(false); return; }
     Promise.all([
       getRewardSummary(childId),
@@ -29,6 +30,9 @@ export default function ParentRewardsPage() {
       setLoading(false);
     });
   }, [childId]);
+
+  useEffect(() => { load(); }, [load]);
+  usePageFocusRefresh(load);
 
   if (loading) {
     return (

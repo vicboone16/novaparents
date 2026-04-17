@@ -4,8 +4,9 @@
  * what you can do, teacher note.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParentChild } from '@/hooks/useParentChild';
+import { usePageFocusRefresh } from '@/hooks/usePageFocusRefresh';
 import {
   getTodayInsight,
   getBehaviorTranslation,
@@ -13,13 +14,13 @@ import {
   type BehaviorSummaryItem,
 } from '@/lib/parent-insights-dal';
 import {
-  CheckCircle, TrendingDown, TrendingUp, Minus,
+  CheckCircle, CheckCircle2, AlertCircle, Minus,
   MessageCircle, Sparkles, Heart, Sun,
 } from 'lucide-react';
 
 function TrendIcon({ trend }: { trend: string }) {
-  if (trend === 'improving') return <TrendingDown className="h-4 w-4 text-success" />;
-  if (trend === 'worsening') return <TrendingUp className="h-4 w-4 text-secondary" />;
+  if (trend === 'improving') return <CheckCircle2 className="h-4 w-4 text-success" />;
+  if (trend === 'worsening') return <AlertCircle className="h-4 w-4 text-secondary" />;
   return <Minus className="h-4 w-4 text-muted-foreground" />;
 }
 
@@ -36,18 +37,12 @@ export default function ParentHomePage() {
   const [fallbackMeaning, setFallbackMeaning] = useState('');
   const [fallbackStrategies, setFallbackStrategies] = useState<string[]>([]);
 
-  useEffect(() => {
-    if (!childId) {
-      setLoading(false);
-      return;
-    }
+  const load = useCallback(() => {
+    if (!childId) { setLoading(false); return; }
     setLoading(true);
     getTodayInsight(childId).then(async (data) => {
       setInsight(data);
-      // Load fallback translations if needed
       if (!data?.what_this_means || !data?.what_you_can_do?.length) {
-        // Use 'general' — a neutral key — so parents never receive escape-specific
-        // strategies when the child's actual function hasn't been determined yet.
         const translation = await getBehaviorTranslation('general');
         setFallbackMeaning(translation.meaning);
         setFallbackStrategies(translation.strategies);
@@ -55,6 +50,9 @@ export default function ParentHomePage() {
       setLoading(false);
     });
   }, [childId]);
+
+  useEffect(() => { load(); }, [load]);
+  usePageFocusRefresh(load);
 
   if (loading) {
     return (
