@@ -78,7 +78,7 @@ export default function LoginPage() {
             <Heart className="h-7 w-7 text-primary-foreground" />
           </div>
           <h1 className="font-display text-2xl font-bold text-foreground">Behavior Decoded™</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Coach Portal</p>
+          <p className="mt-1 text-sm text-muted-foreground">Sign in to your account</p>
         </div>
 
         {success && (

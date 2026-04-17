@@ -112,7 +112,27 @@ export async function recoverStreak(userId: string): Promise<UserStreak> {
 
   if (!existing) throw new Error('No streak data found');
 
-  const restoredStreak = existing.current_streak + 1;
+  // Verify the user still qualifies (double-submit guard: re-check balance and gap)
+  const recovery = checkStreakRecovery(
+    {
+      currentStreak: existing.current_streak,
+      longestStreak: existing.longest_streak,
+      lastActivityDate: existing.last_activity_date,
+    },
+    // XP balance is not available here; the caller must validate before invoking.
+    // We use Infinity so this check only catches the time-window condition.
+    Infinity,
+  );
+  if (!recovery.canRecover) {
+    throw new Error('Streak recovery is no longer available.');
+  }
+
+  // Restore the streak that was active before the 1-day break.
+  // longest_streak is the best proxy: if current_streak is 0 (broken),
+  // the user had been running longest_streak days before missing one day.
+  const restoredStreak = existing.current_streak === 0
+    ? existing.longest_streak
+    : existing.current_streak + 1;
   const newLongest = Math.max(existing.longest_streak, restoredStreak);
 
   await proxyQuery({

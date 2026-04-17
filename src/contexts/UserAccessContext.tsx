@@ -140,6 +140,9 @@ export function UserAccessProvider({ children }: { children: ReactNode }) {
         setStatus('no_access');
         setError('Your account does not have access to Behavior Decoded.');
       } else {
+        // User has real provisioned access — clear any stale independent-mode flag
+        // so they receive their actual agency-linked data on this device going forward.
+        localStorage.removeItem(INDEPENDENT_KEY);
         setStatus('authenticated');
       }
     } catch (err: any) {

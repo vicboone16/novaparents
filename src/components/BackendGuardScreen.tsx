@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ShieldAlert, Heart, UserPlus, Ticket, LogOut } from 'lucide-react';
+import { ShieldAlert, Heart, UserPlus, Ticket, LogOut, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RedeemCodeForm } from '@/components/RedeemCodeForm';
 import { supabase } from '@/integrations/supabase/client';
@@ -10,6 +10,8 @@ interface BackendGuardScreenProps {
   allowIndependentMode?: boolean;
   onContinueIndependent?: () => void;
   onCodeRedeemed?: () => void;
+  /** Called when the user taps "Try again" on a connection error screen */
+  onRetry?: () => void;
 }
 
 export function BackendGuardScreen({
@@ -17,6 +19,7 @@ export function BackendGuardScreen({
   allowIndependentMode,
   onContinueIndependent,
   onCodeRedeemed,
+  onRetry,
 }: BackendGuardScreenProps) {
   const [showRedeem, setShowRedeem] = useState(false);
 
@@ -28,17 +31,26 @@ export function BackendGuardScreen({
   if (!allowIndependentMode) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background p-6">
-        <div className="animate-fade-in text-center max-w-md">
-          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-destructive/10">
+        <div className="animate-fade-in text-center max-w-md space-y-5">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-destructive/10">
             <ShieldAlert className="h-8 w-8 text-destructive" />
           </div>
-          <h1 className="font-display text-2xl font-bold text-foreground mb-2">
-            Connection Error
-          </h1>
-          <p className="text-muted-foreground text-lg">{message}</p>
-          <p className="mt-4 text-sm text-muted-foreground">
-            Please contact support if this persists.
-          </p>
+          <div className="space-y-2">
+            <h1 className="font-display text-2xl font-bold text-foreground">
+              Connection Error
+            </h1>
+            <p className="text-muted-foreground">{message}</p>
+          </div>
+          {onRetry ? (
+            <Button onClick={onRetry} className="w-full gap-2">
+              <RefreshCw className="h-4 w-4" />
+              Try Again
+            </Button>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Please contact support if this persists.
+            </p>
+          )}
         </div>
       </div>
     );

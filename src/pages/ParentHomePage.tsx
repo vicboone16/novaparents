@@ -46,7 +46,9 @@ export default function ParentHomePage() {
       setInsight(data);
       // Load fallback translations if needed
       if (!data?.what_this_means || !data?.what_you_can_do?.length) {
-        const translation = await getBehaviorTranslation('escape'); // default
+        // Use 'general' — a neutral key — so parents never receive escape-specific
+        // strategies when the child's actual function hasn't been determined yet.
+        const translation = await getBehaviorTranslation('general');
         setFallbackMeaning(translation.meaning);
         setFallbackStrategies(translation.strategies);
       }

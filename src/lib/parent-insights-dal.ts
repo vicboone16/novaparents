@@ -51,6 +51,16 @@ export interface BehaviorTranslation {
 // ─── Fallback translations ──────────────────────────────
 
 const FALLBACK_TRANSLATIONS: Record<string, { meaning: string; strategies: string[] }> = {
+  // Used when no function key is known — neutral, always-safe guidance.
+  general: {
+    meaning: 'Your child is building important skills every day, and your consistency at home makes a real difference.',
+    strategies: [
+      'Notice and name the good: "I saw you try really hard just now."',
+      'Keep routines predictable — children feel safer with structure',
+      'Offer choices when possible to build independence',
+      'Stay calm during tough moments — your tone sets the tone',
+    ],
+  },
   escape: {
     meaning: 'Your child is learning to handle challenging activities with support.',
     strategies: [

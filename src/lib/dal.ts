@@ -12,10 +12,29 @@
 import { supabase } from '@/integrations/supabase/client';
 
 // ─── Nova Core connection ───────────────────────────────
+// URL and anon key are read from environment variables so they can be rotated
+// without a code change.  Hardcoded fallbacks are kept for local dev only and
+// must be removed before any public release.
 
-const NOVA_CORE_URL = 'https://yboqqmkghwhlhhnsegje.supabase.co';
+const NOVA_CORE_URL =
+  import.meta.env.VITE_NOVA_CORE_URL ||
+  'https://yboqqmkghwhlhhnsegje.supabase.co';
+
 const NOVA_CORE_ANON_KEY =
+  import.meta.env.VITE_NOVA_CORE_ANON_KEY ||
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlib3FxbWtnaHdobGhobnNlZ2plIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk1NDc4ODMsImV4cCI6MjA4NTEyMzg4M30.F2RPn-0nNx6sqje7P7W2Jfz9mXAXBFNy6xzbV4vf-Fs';
+
+const GATEWAY_TIMEOUT_MS = 15_000;
+
+// Maps HTTP status codes and known error strings to parent-friendly messages.
+function friendlyGatewayError(status: number, raw: string): string {
+  if (status === 401 || status === 403) return 'Your session has expired. Please sign in again.';
+  if (status === 404) return 'The requested data could not be found.';
+  if (status === 429) return 'Too many requests. Please wait a moment and try again.';
+  if (status >= 500) return 'The server is temporarily unavailable. Please try again shortly.';
+  if (raw.toLowerCase().includes('jwt')) return 'Your session has expired. Please sign in again.';
+  return 'Something went wrong connecting to the server. Please try again.';
+}
 
 async function getAuthToken(): Promise<string | null> {
   const { data: { session } } = await supabase.auth.getSession();
@@ -25,6 +44,9 @@ async function getAuthToken(): Promise<string | null> {
 async function callGateway(body: Record<string, unknown>): Promise<any> {
   const token = await getAuthToken();
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), GATEWAY_TIMEOUT_MS);
+
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     apikey: NOVA_CORE_ANON_KEY,
@@ -33,18 +55,28 @@ async function callGateway(body: Record<string, unknown>): Promise<any> {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${NOVA_CORE_URL}/functions/v1/satellite-gateway`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(body),
-  });
+  try {
+    const res = await fetch(`${NOVA_CORE_URL}/functions/v1/satellite-gateway`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Gateway error ${res.status}: ${text}`);
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(friendlyGatewayError(res.status, text));
+    }
+
+    return res.json();
+  } catch (err: any) {
+    if (err?.name === 'AbortError') {
+      throw new Error('The request timed out. Please check your connection and try again.');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  return res.json();
 }
 
 // ─── Public helpers (same API surface as before) ────────

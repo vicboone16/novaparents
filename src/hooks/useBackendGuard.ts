@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { checkHandshake } from '@/lib/dal';
 
 type GuardStatus = 'loading' | 'valid' | 'invalid' | 'error';
@@ -7,7 +7,9 @@ export function useBackendGuard() {
   const [status, setStatus] = useState<GuardStatus>('loading');
   const [errorMessage, setErrorMessage] = useState('');
 
-  useEffect(() => {
+  const run = useCallback(() => {
+    setStatus('loading');
+    setErrorMessage('');
     checkHandshake()
       .then(({ appSlug }) => {
         if (appSlug === 'behaviordecoded' || appSlug === 'behavior_decoded') {
@@ -19,10 +21,14 @@ export function useBackendGuard() {
       })
       .catch((err) => {
         console.error('Handshake error:', err);
-        setErrorMessage('Unable to verify backend connection.');
+        setErrorMessage(err?.message || 'Unable to verify backend connection.');
         setStatus('error');
       });
   }, []);
 
-  return { status, errorMessage };
+  useEffect(() => {
+    run();
+  }, [run]);
+
+  return { status, errorMessage, retry: run };
 }

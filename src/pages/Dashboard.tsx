@@ -116,6 +116,11 @@ export default function Dashboard() {
   }, [accessData]);
 
   useEffect(() => {
+    // Read localStorage values inside the effect so we always have current data,
+    // not a stale closure over the values computed at render time.
+    const currentLocalLessons = getLocalLessonCount();
+    const currentLabGames = getLabGamesCompleted();
+
     getCurrentUser().then(async (user) => {
       if (user) {
         fetchSnapshots().then(snaps => setSnapshots(snaps));
@@ -132,7 +137,7 @@ export default function Dashboard() {
         try {
           const s = await getStreak(user.id);
           setStreak(s);
-          const hasActivity = localLessons > 0 || labGames > 0;
+          const hasActivity = currentLocalLessons > 0 || currentLabGames > 0;
           if (hasActivity) {
             const updated = await recordActivity(user.id);
             setStreak(updated);
@@ -148,7 +153,7 @@ export default function Dashboard() {
       }
     });
     setLocalLearners(getLocalLearners());
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- intentional mount-only effect; localStorage reads are inlined above
 
   function handleStartLearning() {
     localStorage.setItem(ONBOARDING_KEY, 'true');

@@ -41,7 +41,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 const queryClient = new QueryClient();
 
 function AppContent() {
-  const { status: handshakeStatus, errorMessage: handshakeError } = useBackendGuard();
+  const { status: handshakeStatus, errorMessage: handshakeError, retry: retryHandshake } = useBackendGuard();
   const { status: accessStatus, error: accessError, refresh, continueAsIndependent, data: accessData } = useUserAccess();
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -67,9 +67,9 @@ function AppContent() {
     );
   }
 
-  // Handshake failure
+  // Handshake failure — show retry button so a transient network error isn't a hard block
   if (handshakeStatus !== 'valid') {
-    return <BackendGuardScreen message={handshakeError} />;
+    return <BackendGuardScreen message={handshakeError} onRetry={retryHandshake} />;
   }
 
   // Not logged in
@@ -149,11 +149,10 @@ function AppContent() {
           <Route path="/admin/behavior-lab" element={<ProtectedRoute><BehaviorLabAdminPage /></ProtectedRoute>} />
           <Route path="/admin/demo-accounts" element={<ProtectedRoute><DemoAccountsPage /></ProtectedRoute>} />
           <Route path="/admin/parent-preview" element={<ProtectedRoute><ParentPreviewPage /></ProtectedRoute>} />
-          {/* Parent routes also accessible to admins */}
-          <Route path="/parent" element={<ParentHomePage />} />
-          <Route path="/parent/progress" element={<ParentProgressPage />} />
-          <Route path="/parent/rewards" element={<ParentRewardsPage />} />
-          <Route path="/parent/messages" element={<ParentMessagesPage />} />
+          {/* Admins who navigate to /parent/* are redirected to the proper preview
+              tool which wraps pages in StudentOverrideContext. Direct access here
+              would render parent pages without student context, risking data leakage. */}
+          <Route path="/parent/*" element={<ProtectedRoute><Navigate to="/admin/parent-preview" replace /></ProtectedRoute>} />
           <Route path="/learn" element={<Navigate to="/toolkit" replace />} />
           <Route path="/library" element={<Navigate to="/toolkit" replace />} />
           <Route path="/login" element={<Navigate to="/" replace />} />
