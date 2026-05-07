@@ -9,16 +9,18 @@ import ParentHomePage from '@/pages/ParentHomePage';
 import ParentProgressPage from '@/pages/ParentProgressPage';
 import ParentRewardsPage from '@/pages/ParentRewardsPage';
 import ParentMessagesPage from '@/pages/ParentMessagesPage';
-import { seedDemoParentInsights } from '@/lib/parent-insights-dal';
+import { seedDemoParentInsights, deleteDemoParentInsights } from '@/lib/parent-insights-dal';
 import { StudentOverrideProvider } from '@/contexts/StudentOverrideContext';
 import { useUserAccess } from '@/contexts/UserAccessContext';
-import { ArrowLeft, Eye, Database, Loader2, Users } from 'lucide-react';
+import { ArrowLeft, Eye, Database, Loader2, Users, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 
 const TABS = [
@@ -36,6 +38,10 @@ const DEMO_STUDENT = { id: '00000000-0000-0000-0000-000000000001', name: 'Demo S
 export default function ParentPreviewPage() {
   const [tab, setTab] = useState<TabKey>('home');
   const [seeding, setSeeding] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [days, setDays] = useState<string>('7');
+  const [replace, setReplace] = useState(true);
+  const [deleteScopeRange, setDeleteScopeRange] = useState(true);
   const [selectedStudentId, setSelectedStudentId] = useState<string>(DEMO_STUDENT.id);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -67,16 +73,39 @@ export default function ParentPreviewPage() {
 
   async function handleSeed() {
     setSeeding(true);
-    const result = await seedDemoParentInsights(selectedStudentId);
+    const result = await seedDemoParentInsights(selectedStudentId, {
+      days: parseInt(days, 10),
+      replace,
+    });
     if (result.error) {
       toast({ title: 'Seed failed', description: result.error, variant: 'destructive' });
     } else {
       toast({
         title: 'Demo data seeded',
-        description: `${result.inserted} days of parent insights created for ${selectedName}.`,
+        description: `${result.inserted} days of parent insights ${replace ? 'upserted' : 'inserted'} for ${selectedName}.`,
       });
     }
     setSeeding(false);
+  }
+
+  async function handleDelete() {
+    if (!confirm(`Delete seeded insights for ${selectedName}${deleteScopeRange ? ` (last ${days} days)` : ' (all dates)'}?`)) {
+      return;
+    }
+    setDeleting(true);
+    const result = await deleteDemoParentInsights(
+      selectedStudentId,
+      deleteScopeRange ? { days: parseInt(days, 10) } : undefined,
+    );
+    if (result.error) {
+      toast({ title: 'Delete failed', description: result.error, variant: 'destructive' });
+    } else {
+      toast({
+        title: 'Demo data removed',
+        description: `${result.deleted} parent insight rows deleted for ${selectedName}.`,
+      });
+    }
+    setDeleting(false);
   }
 
   return (
@@ -96,10 +125,6 @@ export default function ParentPreviewPage() {
           </h1>
           <p className="text-sm text-muted-foreground">See what parents experience — no account switch needed</p>
         </div>
-        <Button variant="outline" size="sm" onClick={handleSeed} disabled={seeding} className="gap-1.5">
-          {seeding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Database className="h-3.5 w-3.5" />}
-          Seed Demo Data
-        </Button>
       </div>
 
       {/* Student selector */}
@@ -116,6 +141,65 @@ export default function ParentPreviewPage() {
             ))}
           </SelectContent>
         </Select>
+      </div>
+
+      {/* Demo data controls */}
+      <div className="rounded-xl border border-border bg-card p-3 space-y-3">
+        <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          <Database className="h-4 w-4 text-primary" />
+          Demo data controls
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <Label className="text-xs text-muted-foreground">Date range:</Label>
+          <Select value={days} onValueChange={setDays}>
+            <SelectTrigger className="w-[140px] h-8 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="7">Last 7 days</SelectItem>
+              <SelectItem value="14">Last 14 days</SelectItem>
+              <SelectItem value="30">Last 30 days</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <div className="flex items-center gap-2">
+            <Switch id="replace-toggle" checked={replace} onCheckedChange={setReplace} />
+            <Label htmlFor="replace-toggle" className="text-xs text-muted-foreground cursor-pointer">
+              Replace existing
+            </Label>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="default" size="sm" onClick={handleSeed} disabled={seeding} className="gap-1.5">
+            {seeding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Database className="h-3.5 w-3.5" />}
+            Seed {days} days
+          </Button>
+
+          <div className="flex items-center gap-2 ml-auto">
+            <div className="flex items-center gap-2">
+              <Switch
+                id="delete-scope"
+                checked={deleteScopeRange}
+                onCheckedChange={setDeleteScopeRange}
+              />
+              <Label htmlFor="delete-scope" className="text-xs text-muted-foreground cursor-pointer">
+                Limit delete to range
+              </Label>
+            </div>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleDelete}
+              disabled={deleting}
+              className="gap-1.5"
+            >
+              {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+              Delete seeded data
+            </Button>
+          </div>
+        </div>
       </div>
 
       {/* Tab switcher */}
