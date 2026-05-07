@@ -67,11 +67,14 @@ export default function ParentPreviewPage() {
 
   async function handleSeed() {
     setSeeding(true);
-    const result = await seedDemoParentInsights();
+    const result = await seedDemoParentInsights(selectedStudentId);
     if (result.error) {
       toast({ title: 'Seed failed', description: result.error, variant: 'destructive' });
     } else {
-      toast({ title: 'Demo data seeded', description: `${result.inserted} days of parent insights created.` });
+      toast({
+        title: 'Demo data seeded',
+        description: `${result.inserted} days of parent insights created for ${selectedName}.`,
+      });
     }
     setSeeding(false);
   }
