@@ -182,13 +182,15 @@ export async function getBehaviorTranslation(functionKey: string): Promise<{ mea
 
 // ─── Seed demo data ─────────────────────────────────────
 
-export async function seedDemoParentInsights(): Promise<{ inserted: number; error?: string }> {
+export async function seedDemoParentInsights(
+  studentId?: string,
+): Promise<{ inserted: number; error?: string }> {
   const today = new Date();
   const rows: Record<string, unknown>[] = [];
 
-  // Generate 7 days of insights for a demo student ID
-  // We use a fixed UUID that matches demo data conventions
-  const demoStudentId = '00000000-0000-0000-0000-000000000001';
+  // Generate 7 days of insights — defaults to a fixed demo UUID when no
+  // explicit student is selected.
+  const targetStudentId = studentId || '00000000-0000-0000-0000-000000000001';
 
   for (let i = 6; i >= 0; i--) {
     const d = new Date(today);
@@ -213,7 +215,7 @@ export async function seedDemoParentInsights(): Promise<{ inserted: number; erro
     ];
 
     rows.push({
-      student_id: demoStudentId,
+      student_id: targetStudentId,
       insight_date: dateStr,
       headline: headlines[dayOfWeek % headlines.length],
       points_earned: points,
