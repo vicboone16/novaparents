@@ -184,15 +184,16 @@ export async function getBehaviorTranslation(functionKey: string): Promise<{ mea
 
 export async function seedDemoParentInsights(
   studentId?: string,
+  options?: { days?: number; replace?: boolean },
 ): Promise<{ inserted: number; error?: string }> {
   const today = new Date();
   const rows: Record<string, unknown>[] = [];
 
-  // Generate 7 days of insights — defaults to a fixed demo UUID when no
-  // explicit student is selected.
   const targetStudentId = studentId || '00000000-0000-0000-0000-000000000001';
+  const days = Math.max(1, Math.min(365, options?.days ?? 7));
+  const replace = options?.replace ?? true;
 
-  for (let i = 6; i >= 0; i--) {
+  for (let i = days - 1; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
     const dateStr = d.toISOString().split('T')[0];
@@ -227,14 +228,83 @@ export async function seedDemoParentInsights(
   }
 
   try {
-    await proxyQuery({
-      table: 'parent_insights',
-      operation: 'upsert',
-      data: rows,
-      on_conflict: 'student_id,insight_date',
-    });
+    if (replace) {
+      await proxyQuery({
+        table: 'parent_insights',
+        operation: 'upsert',
+        data: rows,
+        on_conflict: 'student_id,insight_date',
+      });
+    } else {
+      await proxyQuery({
+        table: 'parent_insights',
+        operation: 'insert',
+        data: rows,
+      });
+    }
     return { inserted: rows.length };
   } catch (err: any) {
     return { inserted: 0, error: err.message };
+  }
+}
+
+/**
+ * Delete previously seeded parent_insights for a student. Optionally limit
+ * the deletion to a recent date range (last N days, inclusive of today).
+ */
+export async function deleteDemoParentInsights(
+  studentId: string,
+  options?: { days?: number },
+): Promise<{ deleted: number; error?: string }> {
+  try {
+    const eq_filters: Array<{ col: string; val: unknown }> = [
+      { col: 'student_id', val: studentId },
+    ];
+
+    // If a range is specified, fetch matching dates first and filter in-app
+    // since the gateway helper supports only equality/in filters.
+    if (options?.days && options.days > 0) {
+      const since = new Date();
+      since.setDate(since.getDate() - (options.days - 1));
+      const sinceStr = since.toISOString().split('T')[0];
+
+      const existing: ParentInsight[] = (await proxyQuery({
+        table: 'parent_insights',
+        operation: 'select',
+        eq_filters,
+        limit: 1000,
+      })) || [];
+      const dates = existing
+        .filter((r) => r.insight_date >= sinceStr)
+        .map((r) => r.insight_date);
+
+      if (dates.length === 0) return { deleted: 0 };
+
+      await proxyQuery({
+        table: 'parent_insights',
+        operation: 'delete',
+        eq_filters,
+        in_filters: [{ col: 'insight_date', vals: dates }],
+      });
+      return { deleted: dates.length };
+    }
+
+    // No range — delete all rows for this student.
+    const existing: ParentInsight[] = (await proxyQuery({
+      table: 'parent_insights',
+      operation: 'select',
+      eq_filters,
+      limit: 1000,
+    })) || [];
+    if (existing.length === 0) return { deleted: 0 };
+
+    await proxyQuery({
+      table: 'parent_insights',
+      operation: 'delete',
+      eq_filters,
+    });
+    return { deleted: existing.length };
+  } catch (err: any) {
+    return { deleted: 0, error: err.message };
   }
 }
